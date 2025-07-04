@@ -1,8 +1,20 @@
 window.addEventListener('DOMContentLoaded', () => {
-    // このスクリプトは、Local Storageを監視し、待合画面を表示することに特化します。
-    // 管理者画面の admin.js によって書き込まれたデータを読み取ります。
-    
-    const LOCAL_STORAGE_KEY = 'receptionPatientData';
+    // ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
+    // 【重要】あなた自身のFirebase設定をここに貼り付けてください
+    const firebaseConfig = {
+      apiKey: "YOUR_API_KEY",
+      authDomain: "YOUR_AUTH_DOMAIN",
+      projectId: "YOUR_PROJECT_ID",
+      storageBucket: "YOUR_STORAGE_BUCKET",
+      messagingSenderId: "YOUR_MESSAGING_SENDER_ID",
+      appId: "YOUR_APP_ID"
+    };
+    // ▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲
+
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.firestore();
+    const patientsCollection = db.collection('patients');
+
     const roomConfiguration = {
         'レントゲン撮影室': ['レントゲン撮影室(1番)', 'レントゲン撮影室(2番)', '透視室(6番)'],
         '超音波検査室': ['超音波検査室(3番)', '超音波検査室(11番)', '超音波検査室(14番)', '超音波検査室(15番)'],
@@ -14,27 +26,6 @@ window.addEventListener('DOMContentLoaded', () => {
     
     let registeredPatients = [];
     const waitingDisplayGrid = document.querySelector('.waiting-display-grid');
-
-    function loadPatientsFromLocalStorage() {
-        const data = localStorage.getItem(LOCAL_STORAGE_KEY);
-        try {
-            if (data) {
-                registeredPatients = JSON.parse(data).map(p => {
-                    p.receptionTime = new Date(p.receptionTime);
-                    if (p.awayTime) p.awayTime = new Date(p.awayTime);
-                    if (p.inRoomSince) p.inRoomSince = new Date(p.inRoomSince);
-                    p.isExamining = p.isExamining || false;
-                    p.assignedExamRoom = p.assignedExamRoom || null;
-                    return p;
-                });
-            } else {
-                registeredPatients = [];
-            }
-        } catch (e) {
-            console.error("LS Load Error:", e);
-            registeredPatients = [];
-        }
-    }
 
     function renderWaitingDisplay() {
         if (!waitingDisplayGrid) return;
@@ -54,8 +45,8 @@ window.addEventListener('DOMContentLoaded', () => {
             const waitCount = patientsForThisGroup.length;
             let waitTime = 0;
             if (waitCount > 0) {
-                const earliestPatient = patientsForThisGroup.reduce((earliest, current) => current.receptionTime < earliest.receptionTime ? current : earliest);
-                waitTime = Math.round((new Date() - earliestPatient.receptionTime) / (1000 * 60));
+                const earliestPatient = patientsForThisGroup.reduce((earliest, current) => new Date(earliest.receptionTime) < new Date(current.receptionTime) ? earliest : current);
+                waitTime = Math.round((new Date() - new Date(earliestPatient.receptionTime)) / (1000 * 60));
             }
             const roomNameShort = groupName.split('(')[0];
             let noteHtml = specialNoteRooms.includes(roomName) ? `<p class="room-note">${specialNoteText}</p>` : '';
@@ -74,18 +65,23 @@ window.addEventListener('DOMContentLoaded', () => {
     }
     
     function initialize() {
-        loadPatientsFromLocalStorage();
-        renderWaitingDisplay();
-        window.addEventListener('storage', (e) => {
-            if (e.key === LOCAL_STORAGE_KEY) {
-                loadPatientsFromLocalStorage();
-                renderWaitingDisplay();
-            }
-        });
-        setInterval(() => {
-            loadPatientsFromLocalStorage();
+        // Firestoreのリアルタイムリスナーを設定
+        patientsCollection.orderBy("order").onSnapshot(snapshot => {
+            registeredPatients = snapshot.docs.map(doc => {
+                const data = doc.data();
+                return {
+                    id: doc.id,
+                    ...data,
+                    receptionTime: data.receptionTime.toDate(),
+                    awayTime: data.awayTime ? data.awayTime.toDate() : null,
+                    inRoomSince: data.inRoomSince ? data.inRoomSince.toDate() : null,
+                };
+            });
             renderWaitingDisplay();
-        }, 15000);
+        }, error => {
+            console.error("Firestoreからのデータ取得に失敗しました:", error);
+        });
+        setInterval(renderWaitingDisplay, 15000); // 待ち時間更新のため
     }
 
     initialize();
