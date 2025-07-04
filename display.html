@@ -7,113 +7,18 @@
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
-
-    <div class="display-container">
-        <header class="display-header">
-            <h1>画像生理受付状況</h1>
-            <p>こちらの検査を受けられる方は画像生理受付にお越しください。<br>
-               複数の検査を予定されている方は案内可能な検査室からご案内します。</p>
-            <button id="fullscreen-btn" class="btn">全画面表示</button>
-        </header>
-
-        <main id="room-grid" class="room-grid">
-            <div class="room-card" id="room-1">
-                <h3 class="room-name">レントゲン撮影室(1番)</h3>
-                <p class="room-status">待ち: <span id="wait-count-1">0</span>人 / 推定: 約<span id="wait-time-1">0</span>分</p>
-                <p class="room-status">検査中: <span id="current-patient-1">-</span></p>
-                <p class="room-status">次の方: <span id="next-patients-1">-</span></p>
+    <div class="admin-container">
+        <div class="tab-contents" style="border-radius: var(--border-radius); border-top: 1px solid var(--border-color); margin-top: 20px;">
+            <div id="waiting-tab" class="tab-content active">
+                <div class="waiting-header">
+                    <h2>画像生理受付状況</h2>
+                    <p>こちらの検査を受けられる方は画像生理受付にお越しください。<br>複数の検査を予定されている方は案内可能な検査室からご案内します。</p>
+                </div>
+                <div class="waiting-display-grid">
+                    </div>
             </div>
-            <div class="room-card" id="room-2">
-                <h3 class="room-name">レントゲン撮影室(2番)</h3>
-                <p class="room-status">待ち: <span id="wait-count-2">0</span>人 / 推定: 約<span id="wait-time-2">0</span>分</p>
-                <p class="room-status">検査中: <span id="current-patient-2">-</span></p>
-                <p class="room-status">次の方: <span id="next-patients-2">-</span></p>
-            </div>
-            <div class="room-card" id="room-3">
-                <h3 class="room-name">超音波検査室(3番)</h3>
-                <p class="room-status">待ち: <span id="wait-count-3">0</span>人 / 推定: 約<span id="wait-time-3">0</span>分</p>
-                <p class="room-status">検査中: <span id="current-patient-3">-</span></p>
-                <p class="room-status">次の方: <span id="next-patients-3">-</span></p>
-            </div>
-            <div class="room-card" id="room-4">
-                <h3 class="room-name">骨密度検査室(4番)</h3>
-                <p class="room-status">待ち: <span id="wait-count-4">0</span>人 / 推定: 約<span id="wait-time-4">0</span>分</p>
-                <p class="room-status">検査中: <span id="current-patient-4">-</span></p>
-                <p class="room-status">次の方: <span id="next-patients-4">-</span></p>
-            </div>
-            <div class="room-card" id="room-5">
-                <h3 class="room-name">CT室(5番)</h3>
-                <p class="room-status">待ち: <span id="wait-count-5">0</span>人 / 推定: 約<span id="wait-time-5">0</span>分</p>
-                <p class="room-status">検査中: <span id="current-patient-5">-</span></p>
-                <p class="room-status">次の方: <span id="next-patients-5">-</span></p>
-            </div>
-            <div class="room-card" id="room-6">
-                <h3 class="room-name">透視室(6番)</h3>
-                <p class="room-status">待ち: <span id="wait-count-6">0</span>人 / 推定: 約<span id="wait-time-6">0</span>分</p>
-                <p class="room-status">検査中: <span id="current-patient-6">-</span></p>
-                <p class="room-status">次の方: <span id="next-patients-6">-</span></p>
-            </div>
-            <div class="room-card" id="room-7">
-                <h3 class="room-name">聴力検査室(7番)</h3>
-                <p class="room-status">待ち: <span id="wait-count-7">0</span>人 / 推定: 約<span id="wait-time-7">0</span>分</p>
-                <p class="room-status">検査中: <span id="current-patient-7">-</span></p>
-                <p class="room-status">次の方: <span id="next-patients-7">-</span></p>
-            </div>
-            <div class="room-card" id="room-8">
-                <h3 class="room-name">呼吸機能検査室(8番)</h3>
-                 <p class="room-status">待ち: <span id="wait-count-8">0</span>人 / 推定: 約<span id="wait-time-8">0</span>分</p>
-                <p class="room-status">検査中: <span id="current-patient-8">-</span></p>
-                <p class="room-status">次の方: <span id="next-patients-8">-</span></p>
-            </div>
-             <div class="room-card" id="room-9">
-                <h3 class="room-name">血管脈波検査室(9番)</h3>
-                 <p class="room-status">待ち: <span id="wait-count-9">0</span>人 / 推定: 約<span id="wait-time-9">0</span>分</p>
-                <p class="room-status">検査中: <span id="current-patient-9">-</span></p>
-                <p class="room-status">次の方: <span id="next-patients-9">-</span></p>
-            </div>
-            <div class="room-card" id="room-10">
-                <h3 class="room-name">乳腺撮影室(10番)</h3>
-                 <p class="room-status">待ち: <span id="wait-count-10">0</span>人 / 推定: 約<span id="wait-time-10">0</span>分</p>
-                <p class="room-status">検査中: <span id="current-patient-10">-</span></p>
-                <p class="room-status">次の方: <span id="next-patients-10">-</span></p>
-            </div>
-             <div class="room-card" id="room-11">
-                <h3 class="room-name">超音波検査室(11番)</h3>
-                 <p class="room-status">待ち: <span id="wait-count-11">0</span>人 / 推定: 約<span id="wait-time-11">0</span>分</p>
-                <p class="room-status">検査中: <span id="current-patient-11">-</span></p>
-                <p class="room-status">次の方: <span id="next-patients-11">-</span></p>
-            </div>
-             <div class="room-card" id="room-12">
-                <h3 class="room-name">肺機能検査室(12番)</h3>
-                 <p class="room-status">待ち: <span id="wait-count-12">0</span>人 / 推定: 約<span id="wait-time-12">0</span>分</p>
-                <p class="room-status">検査中: <span id="current-patient-12">-</span></p>
-                <p class="room-status">次の方: <span id="next-patients-12">-</span></p>
-            </div>
-            <div class="room-card" id="room-13">
-                <h3 class="room-name">心電図検査室(13番)</h3>
-                 <p class="room-status">待ち: <span id="wait-count-13">0</span>人 / 推定: 約<span id="wait-time-13">0</span>分</p>
-                <p class="room-status">検査中: <span id="current-patient-13">-</span></p>
-                <p class="room-status">次の方: <span id="next-patients-13">-</span></p>
-            </div>
-             <div class="room-card" id="room-14">
-                <h3 class="room-name">超音波検査室(14番)</h3>
-                 <p class="room-status">待ち: <span id="wait-count-14">0</span>人 / 推定: 約<span id="wait-time-14">0</span>分</p>
-                <p class="room-status">検査中: <span id="current-patient-14">-</span></p>
-                <p class="room-status">次の方: <span id="next-patients-14">-</span></p>
-            </div>
-             <div class="room-card" id="room-15">
-                <h3 class="room-name">超音波検査室(15番)</h3>
-                 <p class="room-status">待ち: <span id="wait-count-15">0</span>人 / 推定: 約<span id="wait-time-15">0</span>分</p>
-                <p class="room-status">検査中: <span id="current-patient-15">-</span></p>
-                <p class="room-status">次の方: <span id="next-patients-15">-</span></p>
-            </div>
-        </main>
-
-        <footer class="display-footer">
-            <p>案内票等に記載された予約時間を基準にご案内します。必ずしも受付番号順ではありません。<br>
-               また、依頼内容に応じて順番を前後させることもあります。あらかじめご了承ください。</p>
-        </footer>
+        </div>
     </div>
-
-    </body>
+    <script src="display.js"></script>
+</body>
 </html>

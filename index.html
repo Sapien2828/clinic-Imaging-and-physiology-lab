@@ -3,133 +3,23 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>管理者画面</title>
+    <title>スタッフログイン</title>
     <link rel="stylesheet" href="style.css">
-    <script src="https://cdn.jsdelivr.net/npm/jsqr@1/dist/jsQR.js"></script>
 </head>
 <body>
-
-    <div class="admin-container">
-        <div class="tab-buttons">
-            <button class="tab-button active" data-tab="reception-tab">受付画面</button>
-            <button class="tab-button" data-tab="lab-tab">検査室画面</button>
-            <button class="tab-button" data-tab="waiting-tab">患者待合画面</button>
+    <div class="login-container">
+        <h2>スタッフログイン</h2>
+        <div class="form-group">
+            <label for="id-input">ID</label>
+            <input type="text" id="id-input" placeholder="ID" inputmode="numeric">
         </div>
-
-        <div class="tab-contents">
-            <div id="reception-tab" class="tab-content active">
-                <div class="reception-grid">
-                    <div class="reception-column" id="reception-left-column">
-                        <div class="form-section">
-                            <label for="patient-id">患者ID (7桁):</label>
-                            <input type="text" id="patient-id" placeholder="患者IDをスキャンまたは入力" tabindex="1" inputmode="numeric">
-                        </div>
-                        <div class="form-section">
-                            <h3>検査室選択 (複数選択可)</h3>
-                            <div id="lab-selection" class="selectable-cards">
-                                <div class="card-button" data-value="レントゲン撮影室" data-is-group="true" tabindex="2">レントゲン撮影室</div>
-                                <div class="card-button" data-value="超音波検査室" data-is-group="true" tabindex="3">超音波検査室</div>
-                                <div class="card-button" data-value="骨密度検査室(4番)" tabindex="4">骨密度検査室(4番)</div>
-                                <div class="card-button" data-value="CT撮影室(5番)" tabindex="5">CT撮影室(5番)</div>
-                                <div class="card-button" data-value="乳腺撮影室(10番)" tabindex="6">乳腺撮影室(10番)</div>
-                                <div class="card-button" data-value="肺機能検査室(12番)" tabindex="7">肺機能検査室(12番)</div>
-                                <div class="card-button" data-value="心電図検査室(13番)" tabindex="8">心電図検査室(13番)</div>
-                                <div class="card-button" data-value="透視室(6番)" tabindex="9">透視室(6番)</div>
-                                <div class="card-button" data-value="聴力検査室(7番)" tabindex="10">聴力検査室(7番)</div>
-                                <div class="card-button" data-value="呼吸機能検査室(8番)" tabindex="11">呼吸機能検査室(8番)</div>
-                                <div class="card-button" data-value="血管脈波検査室(9番)" tabindex="12">血管脈波検査室(9番)</div>
-                            </div>
-                        </div>
-                        <div class="form-section">
-                            <h3>特記事項・ステータス（複数選択可）</h3>
-                            <div id="status-selection" class="selectable-cards">
-                                <div class="card-button" data-value="至急対応" tabindex="13">至急対応</div>
-                                <div class="card-button" data-value="検査後移送" tabindex="14">検査後移送</div>
-                                <div class="card-button" data-value="職員(病児)" tabindex="15">職員(病児)</div>
-                                <div class="card-button" data-value="ストレッチャー" tabindex="16">ストレッチャー</div>
-                            </div>
-                        </div>
-                        <div class="form-section">
-                             <label for="special-notes">特記事項 (検査室へ伝達):</label>
-                             <textarea id="special-notes" rows="3" placeholder="アレルギー情報、注意事項など" tabindex="17"></textarea>
-                        </div>
-                        <div class="form-section">
-                            <h3>受付情報プレビュー:</h3>
-                            <div id="preview-area" class="preview-area"></div>
-                        </div>
-                    </div>
-
-                    <div class="reception-column" id="reception-right-column">
-                        <div class="form-section">
-                            <label for="ticket-number">番号札 (1-9999):</label>
-                            <input type="text" id="ticket-number" placeholder="番号札の番号を手入力" inputmode="numeric" tabindex="18">
-                        </div>
-                        <div class="form-section">
-                            <label>番号札QRコード読み取り</label>
-                            <button id="reception-qr-reader-btn" class="btn" tabindex="19">カメラ起動</button>
-                        </div>
-                        <div class="form-section">
-                             <button id="register-btn" class="btn btn-large btn-success" tabindex="20">受付登録</button>
-                        </div>
-                        <hr>
-                        <div class="form-section">
-                            <div class="patient-list-header">
-                                <h3>登録済み患者 (受付)</h3>
-                                <button id="reset-all-btn" class="btn btn-danger btn-small">一斉受付解除</button>
-                            </div>
-                            <div id="registered-list-container" class="patient-list"></div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <div id="lab-tab" class="tab-content">
-                 <h2>検査室別 待機リスト</h2>
-                 <div class="lab-controls">
-                    <div class="form-section">
-                        <label for="lab-room-select">表示する検査室を選択してください:</label>
-                        <select id="lab-room-select" class="form-control"></select>
-                    </div>
-                    <div class="form-section">
-                        <label>番号札QRコードで呼び出し</label>
-                        <button id="lab-qr-reader-btn" class="btn">カメラ起動</button>
-                    </div>
-                 </div>
-                 <hr>
-                 <div class="form-section">
-                    <div class="patient-list-header">
-                        <h3 id="lab-waiting-list-title">待機患者リスト</h3>
-                    </div>
-                    <div id="lab-waiting-list-container" class="patient-list"></div>
-                </div>
-            </div>
-
-            <div id="waiting-tab" class="tab-content">
-                <div class="waiting-display-grid"></div>
-            </div>
+        <div class="form-group">
+            <label for="password-input">パスワード</label>
+            <input type="password" id="password-input" placeholder="パスワード" inputmode="numeric">
         </div>
+        <button id="login-button" class="btn">ログイン</button>
+        <a href="display.html" class="guest-link">検査混雑状況、画像生理待合表示はこちら</a>
     </div>
-    
-    <div id="modal-container" class="modal-container">
-        <div class="modal-content">
-            <h3 id="modal-title"></h3>
-            <div id="modal-body"></div>
-            <div class="modal-actions">
-                <button id="modal-cancel-btn" class="btn btn-danger">キャンセル</button>
-                <button id="modal-ok-btn" class="btn btn-success">決定</button>
-            </div>
-        </div>
-    </div>
-    
-    <div id="camera-container" class="camera-container">
-        <video id="camera-video" playsinline></video>
-        <div class="camera-overlay">
-            <div class="camera-frame"></div>
-            <p>QRコードを枠内に収めてください</p>
-        </div>
-        <button id="stop-camera-btn" class="btn btn-danger">停止</button>
-    </div>
-
-    <script src="script.js"></script>
+    <script src="login.js"></script>
 </body>
 </html>
