@@ -1,28 +1,8 @@
 window.addEventListener('DOMContentLoaded', () => {
-
-    // ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
-    // 【重要】admin.jsと同じ、あなた自身のFirebase設定をここに貼り付けてください
-  const firebaseConfig = {
-
-  apiKey: "AIzaSyCsk7SQQY58yKIn-q4ps1gZ2BRbc2k6flE",
-
-  authDomain: "clinic-imaging-and-physiology.firebaseapp.com",
-
-  projectId: "clinic-imaging-and-physiology",
-
-  storageBucket: "clinic-imaging-and-physiology.firebasestorage.app",
-
-  messagingSenderId: "568457688933",
-
-  appId: "1:568457688933:web:2eee210553b939cf39538c"
-
-    // ▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲
-
-    // Firebaseの初期化
-    firebase.initializeApp(firebaseConfig);
-    const db = firebase.firestore();
-    const patientsCollection = db.collection('patients');
-
+    // このスクリプトは、Local Storageを監視し、待合画面を表示することに特化します。
+    // 管理者画面の admin.js によって書き込まれたデータを読み取ります。
+    
+    const LOCAL_STORAGE_KEY = 'receptionPatientData';
     const roomConfiguration = {
         'レントゲン撮影室': ['レントゲン撮影室(1番)', 'レントゲン撮影室(2番)', '透視室(6番)'],
         '超音波検査室': ['超音波検査室(3番)', '超音波検査室(11番)', '超音波検査室(14番)', '超音波検査室(15番)'],
@@ -33,7 +13,28 @@ window.addEventListener('DOMContentLoaded', () => {
     const specialNoteRooms = ['CT撮影室(5番)', '超音波検査室(3番)', '超音波検査室(11番)', '超音波検査室(14番)', '超音波検査室(15番)'];
     
     let registeredPatients = [];
-    const waitingDisplayGrid = document.querySelector('#waiting-tab .waiting-display-grid');
+    const waitingDisplayGrid = document.querySelector('.waiting-display-grid');
+
+    function loadPatientsFromLocalStorage() {
+        const data = localStorage.getItem(LOCAL_STORAGE_KEY);
+        try {
+            if (data) {
+                registeredPatients = JSON.parse(data).map(p => {
+                    p.receptionTime = new Date(p.receptionTime);
+                    if (p.awayTime) p.awayTime = new Date(p.awayTime);
+                    if (p.inRoomSince) p.inRoomSince = new Date(p.inRoomSince);
+                    p.isExamining = p.isExamining || false;
+                    p.assignedExamRoom = p.assignedExamRoom || null;
+                    return p;
+                });
+            } else {
+                registeredPatients = [];
+            }
+        } catch (e) {
+            console.error("LS Load Error:", e);
+            registeredPatients = [];
+        }
+    }
 
     function renderWaitingDisplay() {
         if (!waitingDisplayGrid) return;
@@ -73,19 +74,18 @@ window.addEventListener('DOMContentLoaded', () => {
     }
     
     function initialize() {
-        patientsCollection.orderBy("order").onSnapshot(snapshot => {
-            registeredPatients = snapshot.docs.map(doc => {
-                const data = doc.data();
-                return {
-                    id: doc.id,
-                    ...data,
-                    receptionTime: data.receptionTime.toDate(),
-                    awayTime: data.awayTime ? data.awayTime.toDate() : null,
-                    inRoomSince: data.inRoomSince ? data.inRoomSince.toDate() : null,
-                };
-            });
-            renderWaitingDisplay();
+        loadPatientsFromLocalStorage();
+        renderWaitingDisplay();
+        window.addEventListener('storage', (e) => {
+            if (e.key === LOCAL_STORAGE_KEY) {
+                loadPatientsFromLocalStorage();
+                renderWaitingDisplay();
+            }
         });
+        setInterval(() => {
+            loadPatientsFromLocalStorage();
+            renderWaitingDisplay();
+        }, 15000);
     }
 
     initialize();

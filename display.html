@@ -7,22 +7,14 @@
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
-    <div class="admin-container">
-        <div class="tab-contents" style="border-radius: var(--border-radius); border-top: 1px solid var(--border-color); margin-top: 20px;">
-            <div id="waiting-tab" class="tab-content active">
-                <div class="waiting-header">
-                    <h2>画像生理受付状況</h2>
-                    <p>こちらの検査を受けられる方は画像生理受付にお越しください。<br>複数の検査を予定されている方は案内可能な検査室からご案内します。</p>
-                </div>
-                <div class="waiting-display-grid">
-                    </div>
+    <div class="display-page-container">
+        <header class="display-header">
+            <h2>画像生理受付状況</h2>
+            <p>こちらの検査を受けられる方は画像生理受付にお越しください。<br>複数の検査を予定されている方は案内可能な検査室からご案内します。</p>
+        </header>
+        <div class="waiting-display-grid">
             </div>
-        </div>
     </div>
-
-    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
-
     <script src="display.js"></script>
 </body>
 </html>
