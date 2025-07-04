@@ -1,5 +1,6 @@
 window.addEventListener('DOMContentLoaded', () => {
 
+    // --- データと設定 ---
     const LOCAL_STORAGE_KEY = 'receptionPatientData';
     const LAST_ACTIVE_DATE_KEY = 'receptionLastActiveDate';
     const roomConfiguration = {
@@ -11,11 +12,13 @@ window.addEventListener('DOMContentLoaded', () => {
     const waitingRoomOrder = ['レントゲン撮影室(1番)', 'レントゲン撮影室(2番)', '超音波検査室(3番)', '骨密度検査室(4番)', 'CT撮影室(5番)', '透視室(6番)', '聴力検査室(7番)', '呼吸機能検査室(8番)', '血管脈波検査室(9番)', '乳腺撮影室(10番)', '超音波検査室(11番)', '肺機能検査室(12番)', '心電図検査室(13番)', '超音波検査室(14番)', '超音波検査室(15番)'];
     const specialNoteRooms = ['CT撮影室(5番)', '超音波検査室(3番)', '超音波検査室(11番)', '超音波検査室(14番)', '超音波検査室(15番)'];
 
+    // --- グローバル変数 & 状態管理 ---
     let registeredPatients = []; 
     let editMode = { active: false, patientId: null };
     let mediaStream = null;
     let qrScanContext = null;
 
+    // --- DOM要素の取得 ---
     const allTabs = document.querySelectorAll('.tab-content');
     const tabButtons = document.querySelectorAll('.tab-button');
     const receptionTab = document.getElementById('reception-tab');
@@ -45,6 +48,7 @@ window.addEventListener('DOMContentLoaded', () => {
     const modalCancelBtn = document.getElementById('modal-cancel-btn');
     const resetAllBtn = document.getElementById('reset-all-btn');
 
+    // --- データ永続化関数 ---
     function savePatientsToLocalStorage() { localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(registeredPatients)); }
     function loadPatientsFromLocalStorage() {
         const data = localStorage.getItem(LOCAL_STORAGE_KEY);
@@ -72,6 +76,7 @@ window.addEventListener('DOMContentLoaded', () => {
         }
     }
 
+    // --- 描画関数 ---
     function renderAll() {
         const activeTab = document.querySelector('.tab-content.active');
         if (!activeTab) return;
@@ -81,6 +86,7 @@ window.addEventListener('DOMContentLoaded', () => {
         else if (activeTabId === 'waiting-tab') renderWaitingDisplay();
     }
     
+    // --- 初期化処理 ---
     function initialize() {
         if (!document.querySelector('.admin-container')) return;
         checkAndResetDailyData();
@@ -92,6 +98,7 @@ window.addEventListener('DOMContentLoaded', () => {
         setInterval(() => { if (document.querySelector('#waiting-tab.active')) { loadPatientsFromLocalStorage(); renderWaitingDisplay(); } }, 15000);
     }
 
+    // --- イベントリスナー設定 ---
     function setupEventListeners() {
         const allFocusableElements = Array.from(receptionTab.querySelectorAll('[tabindex]')).filter(el => el.tabIndex > 0).sort((a, b) => a.tabIndex - b.tabIndex);
         tabButtons.forEach(button => { button.addEventListener('click', (e) => {
@@ -307,19 +314,20 @@ window.addEventListener('DOMContentLoaded', () => {
     }
         
     function populateForm(patient) {
-        // 編集モードを解除せずにフォームをクリア
-        patientIdInput.value = '';
-        ticketNumberInput.value = '';
-        specialNotesInput.value = '';
+        patientIdInput.value = ''; ticketNumberInput.value = ''; specialNotesInput.value = '';
         allReceptionCards.forEach(card => card.classList.remove('selected', 'selected-urgent'));
-        
-        // フォームにデータを設定
         patientIdInput.value = patient.patientId;
         ticketNumberInput.value = patient.ticketNumber;
         specialNotesInput.value = patient.specialNotes;
         allReceptionCards.forEach(card => {
             const cardValue = card.dataset.value;
-            const isSelected = patient.labs.includes(cardValue) || (roomConfiguration[cardValue] && patient.labs.some(lab => roomConfiguration[cardValue].includes(lab))) || patient.statuses.includes(cardValue);
+            const isGroupCard = card.dataset.isGroup === 'true';
+            let isSelected = false;
+            if(isGroupCard) {
+                if (patient.labs.includes(cardValue)) { isSelected = true; }
+            } else {
+                isSelected = patient.labs.includes(cardValue) || patient.statuses.includes(cardValue);
+            }
             if (isSelected) {
                 if (card.parentElement.id === 'status-selection' && cardValue === '至急対応') {
                     card.classList.add('selected-urgent');
@@ -543,12 +551,12 @@ window.addEventListener('DOMContentLoaded', () => {
         updatePreview();
     }
 
-    function handlePatientIdInput(event, focusableElements) {
-        let value = event.target.value.replace(/[^0-9]/g, '').slice(0, 7);
-        event.target.value = value;
+    function handlePatientIdInput(e, focusableElements) {
+        let value = e.target.value.replace(/[^0-9]/g, '').slice(0, 7);
+        e.target.value = value;
         if (value.length === 7) {
-            const firstLabCard = document.querySelector('#lab-selection .card-button');
-            if (firstLabCard) firstLabCard.focus();
+            const xrayButton = document.querySelector('#lab-selection .card-button[data-value="レントゲン撮影室"]');
+            if(xrayButton) xrayButton.focus();
         }
         updatePreview();
     }
