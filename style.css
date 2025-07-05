@@ -34,7 +34,7 @@ hr { margin: 24px 0; border: 0; border-top: 1px solid var(--border-color); }
 .modal-actions { text-align: right; display: flex; justify-content: flex-end; gap: 15px; }
 
 /* ========== 管理者画面のタブUIスタイル ========== */
-.admin-container { width: 100%; max-width: 1200px; margin: 20px auto; padding: 0 15px; box-sizing: border-box; }
+.admin-container, .display-page-container { width: 100%; max-width: 1200px; margin: 20px auto; padding: 0 15px; box-sizing: border-box; }
 .tab-buttons { display: flex; border-bottom: 2px solid var(--border-color); }
 .tab-button { padding: 15px 25px; font-size: 1rem; font-weight: 600; cursor: pointer; background-color: transparent; border: none; border-bottom: 3px solid transparent; color: #6c757d; transition: all 0.2s ease; }
 .tab-button:hover { background-color: #f1f3f5; }
@@ -42,8 +42,9 @@ hr { margin: 24px 0; border: 0; border-top: 1px solid var(--border-color); }
 .tab-contents { padding: 20px; background-color: white; border: 1px solid var(--border-color); border-top: none; border-radius: 0 0 var(--border-radius) var(--border-radius); }
 .tab-content { display: none; }
 .tab-content.active { display: block; }
-.tab-content h2 { text-align: left; margin-top: 0; border-bottom: 2px solid var(--border-color); padding-bottom: 15px; margin-bottom: 20px; }
+.tab-content h2, .display-header h2 { text-align: left; margin-top: 0; border-bottom: 2px solid var(--border-color); padding-bottom: 15px; margin-bottom: 20px; }
 .tab-content h3 { font-size: 1.1rem; margin-top: 1.5rem; margin-bottom: 1rem; }
+.display-header { text-align: center; }
 
 /* ========== 受付画面 & 検査室画面共通のスタイル ========== */
 .reception-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 30px; }
