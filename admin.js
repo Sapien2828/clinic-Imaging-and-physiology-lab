@@ -1,13 +1,11 @@
 window.addEventListener('DOMContentLoaded', () => {
 
-    // このスクリプトが管理者画面(admin.html)でのみ動作するように、
-    // admin-containerの存在をチェックする
     if (!document.querySelector('.admin-container')) {
-        return;
+        return; // 管理者画面でなければ何もしない
     }
 
     // ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
-  
+    // 【重要】あなた自身のFirebase設定をここに貼り付けてください
   const firebaseConfig = {
 
   apiKey: "AIzaSyCsk7SQQY58yKIn-q4ps1gZ2BRbc2k6flE",
@@ -93,6 +91,7 @@ window.addEventListener('DOMContentLoaded', () => {
     }
     
     function initialize() {
+        if (!document.querySelector('.admin-container')) return;
         checkAndResetDailyData();
         setupEventListeners();
         populateLabRoomSelect();
@@ -120,7 +119,6 @@ window.addEventListener('DOMContentLoaded', () => {
 
     function setupEventListeners() {
         const allFocusableElements = Array.from(receptionTab.querySelectorAll('[tabindex]')).filter(el => el.tabIndex > 0).sort((a, b) => a.tabIndex - b.tabIndex);
-        
         tabButtons.forEach(button => { button.addEventListener('click', (e) => {
             const targetTabId = e.currentTarget.dataset.tab;
             tabButtons.forEach(btn => btn.classList.remove('active'));
@@ -254,7 +252,7 @@ window.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    async function handleRoomChangeClick(patientId) {
+    function handleRoomChangeClick(patientId) {
         const selectedPatient = registeredPatients.find(p => p.id === patientId);
         if (!selectedPatient || !selectedPatient.isExamining) return;
         const currentAssignedRoom = selectedPatient.assignedExamRoom;
@@ -295,6 +293,9 @@ window.addEventListener('DOMContentLoaded', () => {
         if (!newPatientData.patientId || !newPatientData.ticketNumber) { alert('患者IDと番号札は必須です。'); return; }
         const querySnapshot = await patientsCollection.where("ticketNumber", "==", newPatientData.ticketNumber).get();
         if (!querySnapshot.empty) { alert('エラー: この番号札は既に使用されています。'); return; }
+        
+        newPatientData.order = registeredPatients.length > 0 ? Math.max(...registeredPatients.map(p => p.order)) + 1 : 0;
+        
         await patientsCollection.add(newPatientData);
         resetReceptionForm();
     }
@@ -307,6 +308,7 @@ window.addEventListener('DOMContentLoaded', () => {
         const querySnapshot = await patientsCollection.where("ticketNumber", "==", newTicketNumber).get();
         const conflictingDoc = querySnapshot.docs.find(doc => doc.id !== editMode.patientId);
         if (conflictingDoc) { alert('エラー: この番号札は他の患者が使用しています。'); return; }
+        
         const patientRef = patientsCollection.doc(editMode.patientId);
         await patientRef.update({
             patientId: newPatientId,
@@ -421,337 +423,6 @@ window.addEventListener('DOMContentLoaded', () => {
         });
     }
 
- function renderAll() {
-        const activeTab = document.querySelector('.tab-content.active');
-        if (!activeTab) return;
-        const activeTabId = activeTab.id;
-        if (activeTabId === 'reception-tab') renderRegisteredList();
-        else if (activeTabId === 'lab-tab') renderLabWaitingList();
-        else if (activeTabId === 'waiting-tab') renderWaitingDisplay();
-    }
-    
-    function initialize() {
-        if (!document.querySelector('.admin-container')) return;
-        checkAndResetDailyData();
-        loadPatientsFromLocalStorage();
-        setupEventListeners();
-        populateLabRoomSelect();
-        renderAll();
-        if (previewArea) updatePreview();
-        setInterval(() => { if (document.querySelector('#waiting-tab.active')) { loadPatientsFromLocalStorage(); renderWaitingDisplay(); } }, 15000);
-    }
-
-    function setupEventListeners() {
-        const allFocusableElements = Array.from(receptionTab.querySelectorAll('[tabindex]')).filter(el => el.tabIndex > 0).sort((a, b) => a.tabIndex - b.tabIndex);
-        tabButtons.forEach(button => { button.addEventListener('click', (e) => {
-            const targetTabId = e.currentTarget.dataset.tab;
-            tabButtons.forEach(btn => btn.classList.remove('active'));
-            e.currentTarget.classList.add('active');
-            allTabs.forEach(tab => { if(tab) tab.id === targetTabId ? tab.classList.add('active') : tab.classList.remove('active'); });
-            loadPatientsFromLocalStorage(); renderAll();
-        }); });
-        window.addEventListener('storage', (e) => { if (e.key === LOCAL_STORAGE_KEY) { loadPatientsFromLocalStorage(); renderAll(); } });
-        if (registerBtn) { registerBtn.addEventListener('click', () => { if (editMode.active) handleUpdate(); else handleRegistration(); }); }
-        
-        const setupListEventListeners = (container) => {
-            if (!container) return;
-            container.addEventListener('click', (e) => {
-                const target = e.target.closest('button');
-                if (!target) return;
-                if (target.matches('.away-btn')) handleAwayButtonClick(e);
-                if (target.matches('.edit-btn')) handleEditButtonClick(e);
-                if (target.matches('.up-btn')) handleMove(e, 'up');
-                if (target.matches('.down-btn')) handleMove(e, 'down');
-                if (container.id === 'registered-list-container' && target.matches('.cancel-btn')) handleCancelButtonClick(e);
-                if (container.id === 'lab-waiting-list-container') {
-                    if (target.matches('.exam-btn')) handleExamButtonClick(e);
-                    if (target.matches('.finish-exam-btn')) handleFinishExamButtonClick(e);
-                    if (target.matches('.change-room-btn')) handleRoomChangeClick(e);
-                    if (target.matches('.cancel-btn')) handleCancelLabReception(e);
-                }
-            });
-            let draggedItem = null;
-            container.addEventListener('dragstart', (e) => {
-                const target = e.target.closest('.patient-card');
-                if (target) { draggedItem = target; setTimeout(() => { if (draggedItem) draggedItem.classList.add('dragging'); }, 0); }
-            });
-            container.addEventListener('dragend', () => { if (draggedItem) { draggedItem.classList.remove('dragging'); draggedItem = null; } });
-            container.addEventListener('dragover', (e) => { e.preventDefault(); const afterElement = getDragAfterElement(container, e.clientY); const currentlyDragged = document.querySelector('.dragging'); if (currentlyDragged) { if (afterElement == null) { container.appendChild(currentlyDragged); } else { container.insertBefore(currentlyDragged, afterElement); } } });
-            container.addEventListener('drop', (e) => {
-                e.preventDefault();
-                if (draggedItem) draggedItem.classList.remove('dragging');
-                const newOrderedIds = Array.from(container.querySelectorAll('.patient-card')).map(card => parseInt(card.dataset.id, 10));
-                registeredPatients.sort((a, b) => newOrderedIds.indexOf(a.id) - newOrderedIds.indexOf(b.id));
-                savePatientsToLocalStorage();
-                renderAll();
-            });
-        };
-        setupListEventListeners(registeredListContainer);
-        setupListEventListeners(labWaitingListContainer);
-
-        allReceptionCards.forEach(card => {
-            card.addEventListener('click', () => toggleCardSelection(card));
-            card.addEventListener('keydown', (e) => { if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); toggleCardSelection(card); } });
-        });
-        if (patientIdInput) { patientIdInput.addEventListener('input', (e) => handlePatientIdInput(e, allFocusableElements)); patientIdInput.addEventListener('blur', handlePatientIdBlur); }
-        if (ticketNumberInput) { ticketNumberInput.addEventListener('input', handleNumericInput); ticketNumberInput.addEventListener('keydown', handleTicketNumberEnter); }
-        if (specialNotesInput) { specialNotesInput.addEventListener('input', updatePreview); }
-        if (receptionQrReaderBtn) { receptionQrReaderBtn.addEventListener('click', () => startCamera('reception')); }
-        if (labQrReaderBtn) { labQrReaderBtn.addEventListener('click', () => startCamera('lab')); }
-        if (stopCameraBtn) { stopCameraBtn.addEventListener('click', stopCamera); }
-        if (labRoomSelect) { labRoomSelect.addEventListener('change', renderLabWaitingList); }
-        if (resetAllBtn) { resetAllBtn.addEventListener('click', handleResetAll); }
-        if (receptionTab) { receptionTab.addEventListener('keydown', (e) => handleArrowKeyNavigation(e, allFocusableElements)); }
-    }
-    
-    function showModal(title, bodyHtml, okCallback, showCancel = true) {
-        if(!modalContainer) return;
-        modalTitle.innerHTML = title;
-        modalBody.innerHTML = bodyHtml;
-        modalOkBtn.onclick = okCallback;
-        modalCancelBtn.onclick = closeModal;
-        modalCancelBtn.style.display = showCancel ? 'inline-block' : 'none';
-        modalOkBtn.textContent = showCancel ? '決定' : 'OK';
-        modalContainer.classList.add('is-visible');
-    }
-    function closeModal() { if(modalContainer) modalContainer.classList.remove('is-visible'); modalOkBtn.onclick = null; modalCancelBtn.onclick = null; }
-    
-    function handleResetAll() { if(confirm('現在の受付情報をすべてリセットしますか？\nこの操作は元に戻せません。')) { registeredPatients = []; savePatientsToLocalStorage(); renderAll(); } }
-    
-    function handleExamButtonClick(e) {
-        const cardElement = e.target.closest('.patient-card');
-        if (!cardElement) return;
-        const patientId = parseInt(cardElement.dataset.id, 10);
-        const selectedPatient = registeredPatients.find(p => p.id === patientId);
-        if (!selectedPatient) return;
-        if (selectedPatient.isExamining) { alert(`この患者は、現在「${selectedPatient.assignedExamRoom}」で検査中です。`); return; }
-        const groupName = labRoomSelect.value;
-        const specificRooms = roomConfiguration[groupName];
-        if (specificRooms && specificRooms.length > 0) {
-            const bodyHtml = `<p><strong>${groupName}</strong>のどの検査室で検査を開始しますか？</p><select id="specific-room-select" class="form-control">${specificRooms.map(r => `<option value="${r}">${r}</option>`).join('')}</select>`;
-            showModal(`番号: ${selectedPatient.ticketNumber} の検査室を選択`, bodyHtml, () => {
-                const specificRoom = document.getElementById('specific-room-select').value;
-                setPatientToExamining(selectedPatient, specificRoom);
-                closeModal();
-            });
-        } else { setPatientToExamining(selectedPatient, groupName); }
-    }
-    
-    function handleFinishExamButtonClick(e) {
-        const cardElement = e.target.closest('.patient-card');
-        if (!cardElement) return;
-        const patientId = parseInt(cardElement.dataset.id, 10);
-        const selectedPatient = registeredPatients.find(p => p.id === patientId);
-        if (!selectedPatient) return;
-        const finishedRoom = selectedPatient.assignedExamRoom;
-        selectedPatient.isExamining = false;
-        selectedPatient.assignedExamRoom = null;
-        selectedPatient.inRoomSince = null;
-        const finishedGroup = Object.keys(roomConfiguration).find(key => roomConfiguration[key]?.includes(finishedRoom)) || finishedRoom;
-        selectedPatient.labs = selectedPatient.labs.filter(lab => lab !== finishedGroup);
-        savePatientsToLocalStorage();
-        renderAll();
-        if (selectedPatient.labs.length > 0) {
-            const bodyHtml = `<p><strong>${finishedRoom}</strong> での検査は終了しました。</p><p>この患者にはまだ次の検査が残っています:<br><strong>${selectedPatient.labs.join(', ')}</strong></p>`;
-            showModal('次の検査があります', bodyHtml, closeModal, false);
-        } else {
-            showModal('全検査完了', `<p>番号: <strong>${selectedPatient.ticketNumber}</strong> の全検査が完了しました。</p>`, closeModal, false);
-        }
-    }
-
-    function handleRoomChangeClick(e) {
-        const cardElement = e.target.closest('.patient-card');
-        if (!cardElement) return;
-        const patientId = parseInt(cardElement.dataset.id, 10);
-        const selectedPatient = registeredPatients.find(p => p.id === patientId);
-        if (!selectedPatient || !selectedPatient.isExamining) return;
-        const currentAssignedRoom = selectedPatient.assignedExamRoom;
-        const groupName = Object.keys(roomConfiguration).find(key => roomConfiguration[key]?.includes(currentAssignedRoom));
-        if (groupName && roomConfiguration[groupName]) {
-            const specificRoomsInGroup = roomConfiguration[groupName];
-            const bodyHtml = `<p><strong>${selectedPatient.ticketNumber}番</strong>を<strong>${groupName}</strong>内で移動させます。</p><select id="specific-room-select" class="form-control">${specificRoomsInGroup.map(r => `<option value="${r}" ${r === currentAssignedRoom ? 'selected' : ''}>${r}</option>`).join('')}</select>`;
-            showModal('検査室を移動', bodyHtml, () => {
-                const newSpecificRoom = document.getElementById('specific-room-select').value;
-                setPatientToExamining(selectedPatient, newSpecificRoom);
-                closeModal();
-            });
-        }
-    }
-
-    function setPatientToExamining(patient, specificRoom) {
-        const existingExamPatient = registeredPatients.find(p => p.isExamining && p.assignedExamRoom === specificRoom);
-        if (existingExamPatient && existingExamPatient.id !== patient.id) {
-            if (confirm(`「${specificRoom}」では、番号札 ${existingExamPatient.ticketNumber} の方が検査中です。\nこの検査を中断して、番号札 ${patient.ticketNumber} の方の検査を開始しますか？`)) {
-                existingExamPatient.isExamining = false;
-                existingExamPatient.inRoomSince = null;
-            } else { return; }
-        }
-        if (patient.isExamining && patient.assignedExamRoom && patient.assignedExamRoom !== specificRoom) {
-            patient.isExamining = false;
-            patient.inRoomSince = null;
-        }
-        patient.isExamining = true;
-        patient.assignedExamRoom = specificRoom;
-        patient.inRoomSince = new Date();
-        savePatientsToLocalStorage();
-        renderAll();
-    }
-    
-    function handleRegistration() {
-        const newPatientData = getCurrentFormData();
-        if (!newPatientData.patientId || !newPatientData.ticketNumber) { alert('患者IDと番号札は必須です。'); return; }
-        if (registeredPatients.some(p => p.ticketNumber === newPatientData.ticketNumber)) { alert('エラー: この番号札は既に使用されています。'); return; }
-        if (newPatientData.statuses.includes('至急対応')) { registeredPatients.unshift(newPatientData); } 
-        else { registeredPatients.push(newPatientData); }
-        savePatientsToLocalStorage(); 
-        renderAll(); 
-        resetReceptionForm();
-    }
-
-    function handleUpdate() {
-        const patientIndex = registeredPatients.findIndex(p => p.id === editMode.patientId);
-        if (patientIndex === -1) { resetReceptionForm(); return; }
-        const newTicketNumber = ticketNumberInput.value;
-        const newPatientId = patientIdInput.value;
-        if (!newPatientId || !newTicketNumber) { alert('患者IDと番号札は必須です。'); return; }
-        if (registeredPatients.some(p => p.ticketNumber === newTicketNumber && p.id !== editMode.patientId)) { alert('エラー: この番号札は他の患者が使用しています。'); return; }
-        const patientToUpdate = registeredPatients[patientIndex];
-        patientToUpdate.patientId = newPatientId;
-        patientToUpdate.ticketNumber = newTicketNumber;
-        patientToUpdate.labs = Array.from(labSelectionCards).filter(c => c.classList.contains('selected')).map(c => c.dataset.value);
-        patientToUpdate.statuses = Array.from(statusSelectionCards).filter(c => c.classList.contains('selected') || c.classList.contains('selected-urgent')).map(c => c.dataset.value);
-        patientToUpdate.specialNotes = specialNotesInput.value;
-        const updatedPatient = registeredPatients.splice(patientIndex, 1)[0];
-        if (updatedPatient.statuses.includes('至急対応')) { registeredPatients.unshift(updatedPatient); } 
-        else {
-            const urgentPatients = registeredPatients.filter(p => p.statuses.includes('至急対応'));
-            let normalPatients = registeredPatients.filter(p => !p.statuses.includes('至急対応'));
-            normalPatients.push(updatedPatient);
-            normalPatients.sort((a,b) => a.receptionTime.getTime() - b.receptionTime.getTime());
-            registeredPatients = [...urgentPatients, ...normalPatients];
-        }
-        savePatientsToLocalStorage(); 
-        renderAll(); 
-        resetReceptionForm();
-    }
-    
-    function handleEditButtonClick(e) {
-        const cardElement = e.target.closest('.patient-card');
-        if(!cardElement) return;
-        const patientId = parseInt(cardElement.dataset.id, 10);
-        const patientToEdit = registeredPatients.find(p => p.id === patientId);
-        if (patientToEdit) {
-            tabButtons.forEach(btn => { if (btn.dataset.tab === 'reception-tab') btn.click(); });
-            setTimeout(() => {
-                editMode.active = true;
-                editMode.patientId = patientId;
-                populateForm(patientToEdit);
-                registerBtn.textContent = '更新';
-                registerBtn.classList.remove('btn-success');
-                registerBtn.classList.add('btn-info');
-                patientIdInput.focus();
-                window.scrollTo(0, 0);
-            }, 100);
-        }
-    }
-        
-    function populateForm(patient) {
-        patientIdInput.value = ''; ticketNumberInput.value = ''; specialNotesInput.value = '';
-        allReceptionCards.forEach(card => card.classList.remove('selected', 'selected-urgent'));
-        patientIdInput.value = patient.patientId;
-        ticketNumberInput.value = patient.ticketNumber;
-        specialNotesInput.value = patient.specialNotes;
-        allReceptionCards.forEach(card => {
-            const cardValue = card.dataset.value;
-            const isGroupCard = card.dataset.isGroup === 'true';
-            let isSelected = false;
-            if(isGroupCard) {
-                if (patient.labs.includes(cardValue)) { isSelected = true; }
-            } else {
-                isSelected = patient.labs.includes(cardValue) || patient.statuses.includes(cardValue);
-            }
-            if (isSelected) {
-                if (card.parentElement.id === 'status-selection' && cardValue === '至急対応') {
-                    card.classList.add('selected-urgent');
-                } else {
-                    card.classList.add('selected');
-                }
-            }
-        });
-        updatePreview();
-    }
-
-    function handleAwayButtonClick(e) {
-        const cardElement = e.target.closest('.patient-card');
-        if (!cardElement) return;
-        const patientId = parseInt(cardElement.dataset.id, 10);
-        const patient = registeredPatients.find(p => p.id === patientId);
-        if (!patient) return;
-        patient.isAway = !patient.isAway;
-        patient.awayTime = patient.isAway ? new Date() : null;
-        savePatientsToLocalStorage(); 
-        renderAll();
-    }
-
-    function handleCancelButtonClick(e) {
-        if (confirm('この受付を本当取り消しますか？（すべての検査がキャンセルされます）')) {
-            const cardElement = e.target.closest('.patient-card');
-            if (!cardElement) return;
-            const patientId = parseInt(cardElement.dataset.id, 10);
-            registeredPatients = registeredPatients.filter(p => p.id !== patientId);
-            savePatientsToLocalStorage();
-            renderAll();
-        }
-    }
-
-    function handleCancelLabReception(e) {
-        const cardElement = e.target.closest('.patient-card');
-        if (!cardElement) return;
-        const patientId = parseInt(cardElement.dataset.id, 10);
-        const patient = registeredPatients.find(p => p.id === patientId);
-        const currentLabGroup = labRoomSelect.value;
-        if (!patient || !currentLabGroup) return;
-        if (confirm(`「${currentLabGroup}」の受付のみを取り消しますか？`)) {
-            patient.labs = patient.labs.filter(lab => lab !== currentLabGroup);
-            if (patient.isExamining && (Object.keys(roomConfiguration).find(key => roomConfiguration[key]?.includes(patient.assignedExamRoom)) || patient.assignedExamRoom) === currentLabGroup) {
-                patient.isExamining = false;
-                patient.assignedExamRoom = null;
-                patient.inRoomSince = null;
-            }
-            if (patient.labs.length === 0) {
-                registeredPatients = registeredPatients.filter(p => p.id !== patientId);
-            }
-            savePatientsToLocalStorage();
-            renderAll();
-        }
-    }
-    
-    function renderRegisteredList() {
-        if (!registeredListContainer) return;
-        const listScrollTop = registeredListContainer.scrollTop;
-        registeredListContainer.innerHTML = '';
-        if (registeredPatients.length === 0) { registeredListContainer.innerHTML = '<p class="no-patients">現在登録されている患者はいません。</p>'; return; }
-        registeredPatients.forEach(patient => {
-            const cardHtml = renderPatientCardHTML(patient, 'reception');
-            registeredListContainer.insertAdjacentHTML('beforeend', cardHtml);
-        });
-        registeredListContainer.scrollTop = listScrollTop;
-    }
-    
-    function renderLabWaitingList() {
-        if (!labWaitingListContainer) return;
-        const selectedRoomOrGroup = labRoomSelect.value;
-        labWaitingListTitle.textContent = selectedRoomOrGroup ? `${selectedRoomOrGroup} 待機患者リスト` : '待機患者リスト';
-        labWaitingListContainer.innerHTML = '';
-        if (!selectedRoomOrGroup) { labWaitingListContainer.innerHTML = '<p class="no-patients">検査室を選択してください。</p>'; return; }
-        const waitingPatients = registeredPatients.filter(p => p.labs.includes(selectedRoomOrGroup));
-        if (waitingPatients.length === 0) { labWaitingListContainer.innerHTML = `<p class="no-patients">${selectedRoomOrGroup}の待機患者はいません。</p>`; return; }
-        waitingPatients.forEach(patient => {
-            const cardHtml = renderPatientCardHTML(patient, 'lab');
-            labWaitingListContainer.insertAdjacentHTML('beforeend', cardHtml);
-        });
-    }
-
     function renderWaitingDisplay() {
         if (!waitingDisplayGrid) return;
         const beforeState = new Map();
@@ -770,8 +441,8 @@ window.addEventListener('DOMContentLoaded', () => {
             const waitCount = patientsForThisGroup.length;
             let waitTime = 0;
             if (waitCount > 0) {
-                const earliestPatient = patientsForThisGroup.reduce((earliest, current) => current.receptionTime < earliest.receptionTime ? current : earliest);
-                waitTime = Math.round((new Date() - earliestPatient.receptionTime) / (1000 * 60));
+                const earliestPatient = patientsForThisGroup.reduce((earliest, current) => new Date(earliest.receptionTime) < new Date(current.receptionTime) ? earliest : current);
+                waitTime = Math.round((new Date() - new Date(earliestPatient.receptionTime)) / (1000 * 60));
             }
             const roomNameShort = groupName.split('(')[0];
             let noteHtml = specialNoteRooms.includes(roomName) ? `<p class="room-note">${specialNoteText}</p>` : '';
@@ -867,14 +538,24 @@ window.addEventListener('DOMContentLoaded', () => {
         } else if (mediaStream) { requestAnimationFrame(scanQrCodeLoop); }
     }
     
-    function handleMove(e, direction) {
+    async function handleMove(e, direction) {
         const cardElement = e.target.closest('.patient-card');
         if (!cardElement) return;
-        const patientId = parseInt(cardElement.dataset.id, 10);
+        const patientId = cardElement.dataset.id;
         const index = registeredPatients.findIndex(p => p.id === patientId);
-        if (direction === 'up' && index > 0) { [registeredPatients[index], registeredPatients[index - 1]] = [registeredPatients[index - 1], registeredPatients[index]]; } 
-        else if (direction === 'down' && index < registeredPatients.length - 1) { [registeredPatients[index], registeredPatients[index + 1]] = [registeredPatients[index + 1], registeredPatients[index]]; }
-        savePatientsToLocalStorage(); renderAll();
+        if (index === -1) return;
+        let otherIndex = -1;
+        if (direction === 'up' && index > 0) { otherIndex = index - 1; } 
+        else if (direction === 'down' && index < registeredPatients.length - 1) { otherIndex = index + 1; }
+        
+        if (otherIndex !== -1) {
+            const patient1 = registeredPatients[index];
+            const patient2 = registeredPatients[otherIndex];
+            const batch = db.batch();
+            batch.update(patientsCollection.doc(patient1.id), { order: patient2.order });
+            batch.update(patientsCollection.doc(patient2.id), { order: patient1.order });
+            await batch.commit();
+        }
     }
         
     function getDragAfterElement(container, y) {
@@ -893,9 +574,9 @@ window.addEventListener('DOMContentLoaded', () => {
         updatePreview();
     }
 
-    function handlePatientIdInput(e, focusableElements) {
-        let value = e.target.value.replace(/[^0-9]/g, '').slice(0, 7);
-        e.target.value = value;
+    function handlePatientIdInput(event, focusableElements) {
+        let value = event.target.value.replace(/[^0-9]/g, '').slice(0, 7);
+        event.target.value = value;
         if (value.length === 7) {
             const firstLabCard = document.querySelector('#lab-selection .card-button');
             if (firstLabCard) firstLabCard.focus();
@@ -949,7 +630,7 @@ window.addEventListener('DOMContentLoaded', () => {
 
     function getCurrentFormData() {
         return {
-            id: Date.now(), patientId: patientIdInput.value, ticketNumber: ticketNumberInput.value, receptionTime: new Date(),
+            patientId: patientIdInput.value, ticketNumber: ticketNumberInput.value, receptionTime: firebase.firestore.FieldValue.serverTimestamp(),
             labs: Array.from(labSelectionCards).filter(c => c.classList.contains('selected')).map(c => c.dataset.value),
             statuses: Array.from(statusSelectionCards).filter(c => c.classList.contains('selected') || c.classList.contains('selected-urgent')).map(c => c.dataset.value),
             specialNotes: specialNotesInput.value, isAway: false, awayTime: null, isExamining: false, assignedExamRoom: null, inRoomSince: null
@@ -957,11 +638,12 @@ window.addEventListener('DOMContentLoaded', () => {
     }
 
     function updatePreview() {
-        if (!patientIdInput) return;
+        if (!previewArea) return;
         const formData = getCurrentFormData();
         if (!formData.patientId && !formData.ticketNumber && formData.labs.length === 0 && formData.statuses.length === 0 && !formData.specialNotes) {
             previewArea.innerHTML = '<p class="no-patients">入力するとここにプレビューが表示されます。</p>'; return;
         }
+        formData.receptionTime = new Date(); // プレビュー用
         previewArea.innerHTML = renderPatientCardHTML(formData, 'reception');
     }
 

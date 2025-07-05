@@ -1,23 +1,12 @@
 window.addEventListener('DOMContentLoaded', () => {
-    // ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
-    // 【重要】あなた自身のFirebase設定をここに貼り付けてください
-
-  const firebaseConfig = {
-
-  apiKey: "AIzaSyCsk7SQQY58yKIn-q4ps1gZ2BRbc2k6flE",
-
-  authDomain: "clinic-imaging-and-physiology.firebaseapp.com",
-
-  projectId: "clinic-imaging-and-physiology",
-
-  storageBucket: "clinic-imaging-and-physiology.firebasestorage.app",
-
-  messagingSenderId: "568457688933",
-
-  appId: "1:568457688933:web:2eee210553b939cf39538c"
-
+    const firebaseConfig = {
+      apiKey: "YOUR_API_KEY",
+      authDomain: "YOUR_AUTH_DOMAIN",
+      projectId: "YOUR_PROJECT_ID",
+      storageBucket: "YOUR_STORAGE_BUCKET",
+      messagingSenderId: "YOUR_MESSAGING_SENDER_ID",
+      appId: "YOUR_APP_ID"
     };
-    // ▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲
 
     firebase.initializeApp(firebaseConfig);
     const db = firebase.firestore();
