@@ -1,15 +1,13 @@
 window.addEventListener('DOMContentLoaded', () => {
 
-    // このスクリプトが管理者画面(admin.html)でのみ動作するように、
-    // admin-containerの存在をチェックする
     if (!document.querySelector('.admin-container')) {
         return;
     }
 
     // ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
     // 【重要】あなた自身のFirebase設定をここに貼り付けてください
- 
- const firebaseConfig = {
+  
+  const firebaseConfig = {
 
   apiKey: "AIzaSyCsk7SQQY58yKIn-q4ps1gZ2BRbc2k6flE",
 
@@ -26,7 +24,6 @@ window.addEventListener('DOMContentLoaded', () => {
     };
     // ▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲
 
-    // Firebaseの初期化
     firebase.initializeApp(firebaseConfig);
     const db = firebase.firestore();
     const patientsCollection = db.collection('patients');
@@ -292,10 +289,6 @@ window.addEventListener('DOMContentLoaded', () => {
         if (!newPatientData.patientId || !newPatientData.ticketNumber) { alert('患者IDと番号札は必須です。'); return; }
         const querySnapshot = await patientsCollection.where("ticketNumber", "==", newPatientData.ticketNumber).get();
         if (!querySnapshot.empty) { alert('エラー: この番号札は既に使用されています。'); return; }
-        
-        const order = registeredPatients.length > 0 ? Math.max(...registeredPatients.map(p => p.order)) + 1 : 0;
-        newPatientData.order = order;
-        
         await patientsCollection.add(newPatientData);
         resetReceptionForm();
     }
@@ -308,10 +301,12 @@ window.addEventListener('DOMContentLoaded', () => {
         const querySnapshot = await patientsCollection.where("ticketNumber", "==", newTicketNumber).get();
         const conflictingDoc = querySnapshot.docs.find(doc => doc.id !== editMode.patientId);
         if (conflictingDoc) { alert('エラー: この番号札は他の患者が使用しています。'); return; }
+        
         const patientRef = patientsCollection.doc(editMode.patientId);
         const doc = await patientRef.get();
         if (!doc.exists) { resetReceptionForm(); return; }
         const existingData = doc.data();
+        
         const updatedData = {
             patientId: newPatientId,
             ticketNumber: newTicketNumber,
@@ -319,12 +314,15 @@ window.addEventListener('DOMContentLoaded', () => {
             statuses: Array.from(statusSelectionCards).filter(c => c.classList.contains('selected') || c.classList.contains('selected-urgent')).map(c => c.dataset.value),
             specialNotes: specialNotesInput.value,
         };
-        const patientToUpdate = { ...existingData, ...updatedData };
-        if (patientToUpdate.statuses.includes('至急対応')) {
+        
+        if (updatedData.statuses.includes('至急対応') && !existingData.statuses.includes('至急対応')) {
             const minOrder = registeredPatients.length > 0 ? Math.min(...registeredPatients.map(p => p.order)) : 0;
-            patientToUpdate.order = minOrder - 1;
+            updatedData.order = minOrder - 1;
+        } else if (!updatedData.statuses.includes('至急対応') && existingData.statuses.includes('至急対応')) {
+            updatedData.order = Date.now();
         }
-        await patientRef.update(patientToUpdate);
+        
+        await patientRef.update(updatedData);
         resetReceptionForm();
     }
     
@@ -546,8 +544,8 @@ window.addEventListener('DOMContentLoaded', () => {
                         } 
                         else { alert(`番号札 ${qrData} の患者は、このリストに見つかりませんでした。`); }
                     }
-                } else { requestAnimationFrame(scanQrCodeLoop); }
-            } else { requestAnimationFrame(scanQrCodeLoop); }
+                } else { if(mediaStream) requestAnimationFrame(scanQrCodeLoop); }
+            } else { if(mediaStream) requestAnimationFrame(scanQrCodeLoop); }
         } else if (mediaStream) { requestAnimationFrame(scanQrCodeLoop); }
     }
     
@@ -612,18 +610,22 @@ window.addEventListener('DOMContentLoaded', () => {
         const currentElement = document.activeElement;
         const currentIndex = focusableElements.indexOf(currentElement);
         if (currentIndex === -1) return;
+        
         e.preventDefault();
+        
         if (currentElement.classList.contains('card-button')) {
             const cards = Array.from(currentElement.closest('.selectable-cards').querySelectorAll('.card-button'));
             const numCols = new Set(cards.map(c => c.getBoundingClientRect().left)).size || 1;
             const currentCardIndex = cards.indexOf(currentElement);
             let nextCard = null;
+
             switch (e.key) {
                 case 'ArrowRight': if (currentCardIndex < cards.length - 1) nextCard = cards[currentCardIndex + 1]; break;
                 case 'ArrowLeft':  if (currentCardIndex > 0) nextCard = cards[currentCardIndex - 1]; break;
                 case 'ArrowDown':  if (currentCardIndex + numCols < cards.length) nextCard = cards[currentCardIndex + numCols]; break;
                 case 'ArrowUp':    if (currentCardIndex - numCols >= 0) nextCard = cards[currentCardIndex - numCols]; break;
             }
+
             if (nextCard) {
                 nextCard.focus();
             } else {

@@ -1,6 +1,5 @@
 window.addEventListener('DOMContentLoaded', () => {
-
-  const firebaseConfig = {
+const firebaseConfig = {
 
   apiKey: "AIzaSyCsk7SQQY58yKIn-q4ps1gZ2BRbc2k6flE",
 

@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>管理者画面</title>
     <link rel="stylesheet" href="style.css">
-    <script src="https://cdn.jsdelivr.net/npm/jsqr@1/dist/jsQR.js"></script>
+    <script src="https://unpkg.com/html5-qrcode/minified/html5-qrcode.min.js"></script>
 </head>
 <body>
     <div class="admin-container">
@@ -115,11 +115,7 @@
         </div>
     </div>
     <div id="camera-container" class="camera-container">
-        <video id="camera-video" playsinline></video>
-        <div class="camera-overlay">
-            <div class="camera-frame"></div>
-            <p>QRコードを枠内に収めてください</p>
-        </div>
+        <div id="qr-reader"></div>
         <button id="stop-camera-btn" class="btn btn-danger">停止</button>
     </div>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
