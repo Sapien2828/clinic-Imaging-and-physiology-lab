@@ -6,7 +6,7 @@ window.addEventListener('DOMContentLoaded', () => {
 
     // ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
     // 【重要】あなた自身のFirebase設定をここに貼り付けてください
-  const firebaseConfig = {
+ const firebaseConfig = {
 
   apiKey: "AIzaSyCsk7SQQY58yKIn-q4ps1gZ2BRbc2k6flE",
 
@@ -20,6 +20,7 @@ window.addEventListener('DOMContentLoaded', () => {
 
   appId: "1:568457688933:web:2eee210553b939cf39538c"
 
+    };
     // ▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲
 
     firebase.initializeApp(firebaseConfig);
