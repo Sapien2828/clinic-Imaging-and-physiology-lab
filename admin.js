@@ -1,13 +1,15 @@
 window.addEventListener('DOMContentLoaded', () => {
 
+    // このスクリプトが管理者画面(admin.html)でのみ動作するように、
+    // admin-containerの存在をチェックする
     if (!document.querySelector('.admin-container')) {
-        return; // 管理者画面でなければ何もしない
+        return;
     }
 
     // ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
     // 【重要】あなた自身のFirebase設定をここに貼り付けてください
-  
-  const firebaseConfig = {
+ 
+ const firebaseConfig = {
 
   apiKey: "AIzaSyCsk7SQQY58yKIn-q4ps1gZ2BRbc2k6flE",
 
@@ -162,13 +164,9 @@ window.addEventListener('DOMContentLoaded', () => {
                 if (draggedItem) draggedItem.classList.remove('dragging');
                 const newOrderedIds = Array.from(container.querySelectorAll('.patient-card')).map(card => card.dataset.id);
                 const batch = db.batch();
-                const readPromises = newOrderedIds.map(id => patientsCollection.doc(id).get());
-                const docs = await Promise.all(readPromises);
-                const oldOrders = docs.map(doc => doc.data().order);
-                oldOrders.sort((a,b) => a-b);
                 newOrderedIds.forEach((id, index) => {
                     const patientRef = patientsCollection.doc(id);
-                    batch.update(patientRef, { order: oldOrders[index] });
+                    batch.update(patientRef, { order: index });
                 });
                 await batch.commit();
             });
@@ -294,6 +292,10 @@ window.addEventListener('DOMContentLoaded', () => {
         if (!newPatientData.patientId || !newPatientData.ticketNumber) { alert('患者IDと番号札は必須です。'); return; }
         const querySnapshot = await patientsCollection.where("ticketNumber", "==", newPatientData.ticketNumber).get();
         if (!querySnapshot.empty) { alert('エラー: この番号札は既に使用されています。'); return; }
+        
+        const order = registeredPatients.length > 0 ? Math.max(...registeredPatients.map(p => p.order)) + 1 : 0;
+        newPatientData.order = order;
+        
         await patientsCollection.add(newPatientData);
         resetReceptionForm();
     }
@@ -317,10 +319,12 @@ window.addEventListener('DOMContentLoaded', () => {
             statuses: Array.from(statusSelectionCards).filter(c => c.classList.contains('selected') || c.classList.contains('selected-urgent')).map(c => c.dataset.value),
             specialNotes: specialNotesInput.value,
         };
-        // orderは変更しない
-        updatedData.order = existingData.order; 
-        
-        await patientRef.update(updatedData);
+        const patientToUpdate = { ...existingData, ...updatedData };
+        if (patientToUpdate.statuses.includes('至急対応')) {
+            const minOrder = registeredPatients.length > 0 ? Math.min(...registeredPatients.map(p => p.order)) : 0;
+            patientToUpdate.order = minOrder - 1;
+        }
+        await patientRef.update(patientToUpdate);
         resetReceptionForm();
     }
     
@@ -510,6 +514,7 @@ window.addEventListener('DOMContentLoaded', () => {
         navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } }).then((stream) => {
             mediaStream = stream; videoElement.srcObject = stream; videoElement.play();
             cameraContainer.classList.add('is-visible');
+            scanQrCodeLoop();
         }).catch((err) => { console.error("カメラの起動に失敗しました:", err); alert("カメラを起動できませんでした。ブラウザのカメラアクセス許可を確認してください。\n(注: file:/// で開いている場合、カメラは使用できません。)"); });
     }
     function stopCamera() {
@@ -534,18 +539,19 @@ window.addEventListener('DOMContentLoaded', () => {
                         setTimeout(() => registerBtn.click(), 100);
                     } else if (qrScanContext === 'lab') {
                         const patientCard = Array.from(labWaitingListContainer.querySelectorAll('.patient-card')).find(card => card.querySelector('.card-ticket-number').textContent === qrData);
-                        if(patientCard) { patientCard.querySelector('.exam-btn')?.click(); } 
+                        if(patientCard) {
+                            const examBtn = patientCard.querySelector('.exam-btn');
+                            if (examBtn && !examBtn.disabled) examBtn.click();
+                            else alert(`番号札 ${qrData} の患者は、現在他の検査室で呼び出し中です。`);
+                        } 
                         else { alert(`番号札 ${qrData} の患者は、このリストに見つかりませんでした。`); }
                     }
-                } else { if(mediaStream) requestAnimationFrame(scanQrCodeLoop); }
-            } else { if(mediaStream) requestAnimationFrame(scanQrCodeLoop); }
+                } else { requestAnimationFrame(scanQrCodeLoop); }
+            } else { requestAnimationFrame(scanQrCodeLoop); }
         } else if (mediaStream) { requestAnimationFrame(scanQrCodeLoop); }
     }
     
-    async function handleMove(e, direction) {
-        const cardElement = e.target.closest('.patient-card');
-        if (!cardElement) return;
-        const patientId = cardElement.dataset.id;
+    async function handleMove(patientId, direction) {
         const index = registeredPatients.findIndex(p => p.id === patientId);
         if (index === -1) return;
         let otherIndex = -1;
@@ -638,7 +644,7 @@ window.addEventListener('DOMContentLoaded', () => {
             labs: Array.from(labSelectionCards).filter(c => c.classList.contains('selected')).map(c => c.dataset.value),
             statuses: Array.from(statusSelectionCards).filter(c => c.classList.contains('selected') || c.classList.contains('selected-urgent')).map(c => c.dataset.value),
             specialNotes: specialNotesInput.value, isAway: false, awayTime: null, isExamining: false, assignedExamRoom: null, inRoomSince: null,
-            order: registeredPatients.length
+            order: registeredPatients.length > 0 ? Math.max(...registeredPatients.map(p => p.order)) + 1 : 0
         };
     }
 
