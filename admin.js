@@ -1,11 +1,9 @@
 window.addEventListener('DOMContentLoaded', () => {
 
     if (!document.querySelector('.admin-container')) {
-        return; // 管理者画面でなければ何もしない
+        return;
     }
 
-    // ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
-    // 【重要】あなた自身のFirebase設定をここに貼り付けてください
   const firebaseConfig = {
 
   apiKey: "AIzaSyCsk7SQQY58yKIn-q4ps1gZ2BRbc2k6flE",
@@ -21,9 +19,7 @@ window.addEventListener('DOMContentLoaded', () => {
   appId: "1:568457688933:web:2eee210553b939cf39538c"
 
     };
-    // ▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲
 
-    // Firebaseの初期化
     firebase.initializeApp(firebaseConfig);
     const db = firebase.firestore();
     const patientsCollection = db.collection('patients');
@@ -91,7 +87,6 @@ window.addEventListener('DOMContentLoaded', () => {
     }
     
     function initialize() {
-        if (!document.querySelector('.admin-container')) return;
         checkAndResetDailyData();
         setupEventListeners();
         populateLabRoomSelect();
@@ -119,6 +114,7 @@ window.addEventListener('DOMContentLoaded', () => {
 
     function setupEventListeners() {
         const allFocusableElements = Array.from(receptionTab.querySelectorAll('[tabindex]')).filter(el => el.tabIndex > 0).sort((a, b) => a.tabIndex - b.tabIndex);
+        
         tabButtons.forEach(button => { button.addEventListener('click', (e) => {
             const targetTabId = e.currentTarget.dataset.tab;
             tabButtons.forEach(btn => btn.classList.remove('active'));
@@ -161,13 +157,9 @@ window.addEventListener('DOMContentLoaded', () => {
                 if (draggedItem) draggedItem.classList.remove('dragging');
                 const newOrderedIds = Array.from(container.querySelectorAll('.patient-card')).map(card => card.dataset.id);
                 const batch = db.batch();
-                const readPromises = newOrderedIds.map(id => patientsCollection.doc(id).get());
-                const docs = await Promise.all(readPromises);
-                const oldOrders = docs.map(doc => doc.data().order);
-                oldOrders.sort((a,b) => a-b);
                 newOrderedIds.forEach((id, index) => {
                     const patientRef = patientsCollection.doc(id);
-                    batch.update(patientRef, { order: oldOrders[index] });
+                    batch.update(patientRef, { order: index });
                 });
                 await batch.commit();
             });
@@ -293,9 +285,7 @@ window.addEventListener('DOMContentLoaded', () => {
         if (!newPatientData.patientId || !newPatientData.ticketNumber) { alert('患者IDと番号札は必須です。'); return; }
         const querySnapshot = await patientsCollection.where("ticketNumber", "==", newPatientData.ticketNumber).get();
         if (!querySnapshot.empty) { alert('エラー: この番号札は既に使用されています。'); return; }
-        
         newPatientData.order = registeredPatients.length > 0 ? Math.max(...registeredPatients.map(p => p.order)) + 1 : 0;
-        
         await patientsCollection.add(newPatientData);
         resetReceptionForm();
     }
@@ -308,7 +298,6 @@ window.addEventListener('DOMContentLoaded', () => {
         const querySnapshot = await patientsCollection.where("ticketNumber", "==", newTicketNumber).get();
         const conflictingDoc = querySnapshot.docs.find(doc => doc.id !== editMode.patientId);
         if (conflictingDoc) { alert('エラー: この番号札は他の患者が使用しています。'); return; }
-        
         const patientRef = patientsCollection.doc(editMode.patientId);
         await patientRef.update({
             patientId: newPatientId,
@@ -574,9 +563,9 @@ window.addEventListener('DOMContentLoaded', () => {
         updatePreview();
     }
 
-    function handlePatientIdInput(event, focusableElements) {
-        let value = event.target.value.replace(/[^0-9]/g, '').slice(0, 7);
-        event.target.value = value;
+    function handlePatientIdInput(e, focusableElements) {
+        let value = e.target.value.replace(/[^0-9]/g, '').slice(0, 7);
+        e.target.value = value;
         if (value.length === 7) {
             const firstLabCard = document.querySelector('#lab-selection .card-button');
             if (firstLabCard) firstLabCard.focus();
@@ -633,7 +622,8 @@ window.addEventListener('DOMContentLoaded', () => {
             patientId: patientIdInput.value, ticketNumber: ticketNumberInput.value, receptionTime: firebase.firestore.FieldValue.serverTimestamp(),
             labs: Array.from(labSelectionCards).filter(c => c.classList.contains('selected')).map(c => c.dataset.value),
             statuses: Array.from(statusSelectionCards).filter(c => c.classList.contains('selected') || c.classList.contains('selected-urgent')).map(c => c.dataset.value),
-            specialNotes: specialNotesInput.value, isAway: false, awayTime: null, isExamining: false, assignedExamRoom: null, inRoomSince: null
+            specialNotes: specialNotesInput.value, isAway: false, awayTime: null, isExamining: false, assignedExamRoom: null, inRoomSince: null,
+            order: registeredPatients.length
         };
     }
 
@@ -643,7 +633,7 @@ window.addEventListener('DOMContentLoaded', () => {
         if (!formData.patientId && !formData.ticketNumber && formData.labs.length === 0 && formData.statuses.length === 0 && !formData.specialNotes) {
             previewArea.innerHTML = '<p class="no-patients">入力するとここにプレビューが表示されます。</p>'; return;
         }
-        formData.receptionTime = new Date(); // プレビュー用
+        formData.receptionTime = new Date();
         previewArea.innerHTML = renderPatientCardHTML(formData, 'reception');
     }
 
