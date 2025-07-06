@@ -5,14 +5,19 @@ window.addEventListener('DOMContentLoaded', () => {
     }
 
     // Firebase設定
-    const firebaseConfig = {
-        apiKey: "AIzaSyCsk7SQQY58yKIn-q4ps1gZ2BRbc2k6flE",
-        authDomain: "clinic-imaging-and-physiology.firebaseapp.com",
-        projectId: "clinic-imaging-and-physiology",
-        storageBucket: "clinic-imaging-and-physiology.firebasestorage.app",
-        messagingSenderId: "568457688933",
-        appId: "1:568457688933:web:2eee210553b939cf39538c"
-    };
+   const firebaseConfig = {
+
+  apiKey: "AIzaSyCsk7SQQY58yKIn-q4ps1gZ2BRbc2k6flE",
+
+  authDomain: "clinic-imaging-and-physiology.firebaseapp.com",
+
+  projectId: "clinic-imaging-and-physiology",
+
+  storageBucket: "clinic-imaging-and-physiology.firebasestorage.app",
+
+  messagingSenderId: "568457688933",
+
+  appId: "1:568457688933:web:2eee210553b939cf39538c"
 
     firebase.initializeApp(firebaseConfig);
     const db = firebase.firestore();
@@ -133,7 +138,7 @@ async function handleRegistrationOrUpdate() {
         console.log("編集中のID:", currentDocId);
         console.log("一致したDoc ID:", querySnapshot.docs.map(d => d.id));
 
-        const conflictDoc = querySnapshot.docs.find(doc => doc.id !== currentDocId);
+        const conflictDoc = querySnapshot.docs.find(doc => String(doc.id) !== String(currentDocId));
 
         if (conflictDoc) {
             alert('エラー: この番号札は他の患者が既に使用しています。');
