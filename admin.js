@@ -18,7 +18,6 @@ window.addEventListener('DOMContentLoaded', () => {
     const db = firebase.firestore();
     const patientsCollection = db.collection('patients');
 
-    // ... (以前の変数定義は変更なし) ...
     const LAST_ACTIVE_DATE_KEY = 'receptionLastActiveDate';
     const roomConfiguration = {
         'レントゲン撮影室': ['レントゲン撮影室(1番)', 'レントゲン撮影室(2番)', '透視室(6番)'],
@@ -59,57 +58,33 @@ window.addEventListener('DOMContentLoaded', () => {
 
 
     /**
-     * ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼【修正点 1-A】ご提案のロジックを関数化 ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
-     * ご提案いただいたロジックを基に、重複チェックを行うヘルパー関数を定義します。
-     * @param {string} ticketNumber - チェックする番号札
-     * @param {string|null} editingId - 編集中の患者ID（新規登録時はnull）
-     * @returns {boolean} - 重複している場合はtrue
+     * ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼【修正点 1】ご提案のロジックを正確に実装 ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
+     * ご提示いただいた、より確実な重複チェック関数をここに定義します。
+     * @param {string} newTicketNumber - チェックする番号札
+     * @param {string|null} currentPatientId - 編集中の患者ID（新規登録時はnull）
+     * @returns {boolean} - 重複している場合はtrueを返す
      */
-    function isDuplicateTicketNumber(ticketNumber, editingId = null) {
-        return registeredPatients.some(patient => 
-            patient.ticketNumber === ticketNumber && patient.id !== editingId
-        );
-    }
-
-    /**
-     * ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼【修正点 2】二重表示問題への最終対策 ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
-     * Firestoreからのデータ受信時に、Mapを使ってIDの重複を完全に排除してから
-     * `registeredPatients` 配列を生成します。これにより、描画の重複を防ぎます。
-     */
-    function listenToPatients() {
-        patientsCollection.onSnapshot(snapshot => {
-            const patientMap = new Map();
-            snapshot.docs.forEach(doc => {
-                const data = doc.data();
-                patientMap.set(doc.id, {
-                    id: doc.id,
-                    ...data,
-                    receptionTime: data.receptionTime?.toDate(),
-                    awayTime: data.awayTime ? data.awayTime.toDate() : null,
-                    inRoomSince: data.inRoomSince ? data.inRoomSince.toDate() : null,
-                });
-            });
-            
-            // Mapから値を取り出して配列にし、orderプロパティでソートする
-            registeredPatients = Array.from(patientMap.values())
-                .sort((a, b) => a.order - b.order);
-                
-            renderAll();
-        }, error => {
-            console.error("Firestoreからのデータ取得に失敗しました:", error);
+    function isDuplicateTicketNumber(newTicketNumber, currentPatientId = null) {
+        return registeredPatients.some(patient => {
+            // 自分自身をチェック対象から除外する
+            if (currentPatientId && patient.id === currentPatientId) {
+                return false;
+            }
+            // 他の患者で番号が一致するかどうかをチェック
+            return String(patient.ticketNumber) === String(newTicketNumber);
         });
     }
 
     /**
-     * ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼【修正点 1-B】新規登録時の重複チェックを修正 ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
-     * 新しく作成した isDuplicateTicketNumber 関数を使ってチェックします。
+     * ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼【修正点 2】登録処理をゼロベースで再構築 ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
+     * 新しい重複チェック関数を使い、ロジックをシンプルにします。
      */
     async function handleRegistration() {
         const newTicketNumber = ticketNumberInput.value;
         if (!patientIdInput.value || patientIdInput.value.length !== 7) { alert('患者IDは7桁で入力してください。'); return; }
         if (!newTicketNumber) { alert('番号札は必須です。'); return; }
 
-        // 新規登録なので、第2引数は渡さずにチェック
+        // 新規登録なので、編集IDは渡さずに重複チェック
         if (isDuplicateTicketNumber(newTicketNumber)) {
             alert('エラー: この番号札は既に使用されています。');
             return;
@@ -121,9 +96,8 @@ window.addEventListener('DOMContentLoaded', () => {
     }
 
     /**
-     * ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼【修正点 1-C】編集時の重複チェックを修正 ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
-     * こちらも isDuplicateTicketNumber 関数を使い、第2引数に編集中のIDを渡します。
-     * これにより、自分自身の番号札は重複チェックから除外されます。
+     * ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼【修正点 3】更新処理をゼロベースで再構築 ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
+     * こちらも新しい関数を使い、編集中のIDを渡して重複チェックを行います。
      */
     async function handleUpdate() {
         if (!editMode.active || !editMode.patientId) return;
@@ -132,7 +106,7 @@ window.addEventListener('DOMContentLoaded', () => {
         if (!patientIdInput.value || patientIdInput.value.length !== 7) { alert('患者IDは7桁で入力してください。'); return; }
         if (!newTicketNumber) { alert('番号札は必須です。'); return; }
 
-        // 編集時は、第2引数に編集中のIDを渡してチェック
+        // 編集なので、現在編集中のID `editMode.patientId` を渡して重複チェック
         if (isDuplicateTicketNumber(newTicketNumber, editMode.patientId)) {
             alert('エラー: その番号札は他の患者が既に使用しています。');
             return;
@@ -165,11 +139,36 @@ window.addEventListener('DOMContentLoaded', () => {
         resetReceptionForm();
     }
 
+
     // ===============================================================
     // ===============================================================
     //            以下の関数群は前回から変更ありません
+    //            (二重表示を解消した listenToPatients もそのままです)
     // ===============================================================
     // ===============================================================
+
+    function listenToPatients() {
+        patientsCollection.onSnapshot(snapshot => {
+            const patientMap = new Map();
+            snapshot.docs.forEach(doc => {
+                const data = doc.data();
+                patientMap.set(doc.id, {
+                    id: doc.id,
+                    ...data,
+                    receptionTime: data.receptionTime?.toDate(),
+                    awayTime: data.awayTime ? data.awayTime.toDate() : null,
+                    inRoomSince: data.inRoomSince ? data.inRoomSince.toDate() : null,
+                });
+            });
+            
+            registeredPatients = Array.from(patientMap.values())
+                .sort((a, b) => a.order - b.order);
+                
+            renderAll();
+        }, error => {
+            console.error("Firestoreからのデータ取得に失敗しました:", error);
+        });
+    }
 
     function checkAndResetDailyData() {
         const today = new Date().toISOString().split('T')[0];
@@ -191,7 +190,7 @@ window.addEventListener('DOMContentLoaded', () => {
     function initialize() {
         if (!document.querySelector('.admin-container')) return;
         checkAndResetDailyData();
-        listenToPatients(); // 修正済みの関数を呼び出し
+        listenToPatients();
         setupEventListeners();
         populateLabRoomSelect();
         if (previewArea) updatePreview();
