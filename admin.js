@@ -62,13 +62,13 @@ window.addEventListener('DOMContentLoaded', () => {
 
     /**
      * =================================================================
-     * 【最終FIX】ご提案いただいたロジックに基づく、登録・更新の統合関数
+     * 【最終修正】ご指摘の根本原因を修正した、登録・更新の統合関数
      * =================================================================
      */
     async function handleRegistrationOrUpdate() {
         const newTicketNumber = ticketNumberInput.value;
-        const newPatientId = patientIdInput.value;
-        const currentPatientId = editMode.active ? String(editMode.patientId) : null;
+        const newPatientId = patientIdInput.value; // これは7桁の患者ID
+        const currentDocId = editMode.active ? editMode.patientId : null; // これはFirestoreのドキュメントID
 
         if (!newPatientId || newPatientId.length !== 7) {
             alert('患者IDは7桁で入力してください。');
@@ -82,16 +82,25 @@ window.addEventListener('DOMContentLoaded', () => {
         // Firestore から ticketNumber が重複していないか確認
         const querySnapshot = await patientsCollection.where("ticketNumber", "==", newTicketNumber).get();
 
-        // 自分のドキュメント以外に同じ ticketNumber を使っている人がいたらエラー
-        const conflictDoc = querySnapshot.docs.find(doc => String(doc.id) !== currentPatientId);
+        //【デバッグ用ログ】ご提案に基づき、比較対象のIDをコンソールに表示します
+        console.log('--- 更新時のID比較 ---');
+        console.log('現在編集中のFirestore Doc ID:', currentDocId);
+        console.log('DBで見つかった同一番号のDoc IDリスト:', querySnapshot.docs.map(doc => doc.id));
+        
+        // 自分自身のドキュメントID以外に同じ ticketNumber を使っている人がいたらエラー
+        const conflictDoc = querySnapshot.docs.find(doc => doc.id !== currentDocId);
+        
         if (conflictDoc) {
+            console.log('重複エラー！競合したDoc ID:', conflictDoc.id);
             alert('エラー: この番号札は他の患者が既に使用しています。');
             return;
         }
+        
+        console.log('重複なし。処理を続行します。');
 
-        if (editMode.active && currentPatientId) {
+        if (editMode.active && currentDocId) {
             // -------------------- 更新処理 --------------------
-            const patientRef = patientsCollection.doc(currentPatientId);
+            const patientRef = patientsCollection.doc(currentDocId);
             const doc = await patientRef.get();
             if (!doc.exists) {
                 alert("編集対象の患者が見つかりませんでした。");
@@ -100,7 +109,6 @@ window.addEventListener('DOMContentLoaded', () => {
             }
 
             const originalData = doc.data();
-            // 更新時は、変更可能なフィールドのみを抽出してデータを作成
             const updatedData = {
                 patientId: newPatientId,
                 ticketNumber: newTicketNumber,
@@ -126,6 +134,7 @@ window.addEventListener('DOMContentLoaded', () => {
         resetReceptionForm();
     }
 
+
     // イベントリスナー設定（全てのリスナーを復元・確認済み）
     function setupEventListeners() {
         const allFocusableElements = Array.from(receptionTab.querySelectorAll('[tabindex]')).filter(el => el.tabIndex > 0).sort((a, b) => a.tabIndex - b.tabIndex);
@@ -147,7 +156,7 @@ window.addEventListener('DOMContentLoaded', () => {
                 if (!target) return;
                 const card = target.closest('.patient-card');
                 if (!card) return;
-                const patientId = card.dataset.id;
+                const patientId = card.dataset.id; // ここで取得されるのはFirestoreのDoc ID
                 if (!patientId) return;
 
                 if (target.matches('.away-btn')) handleAwayButtonClick(patientId);
@@ -206,14 +215,13 @@ window.addEventListener('DOMContentLoaded', () => {
         if (resetAllBtn) { resetAllBtn.addEventListener('click', () => handleResetAll(false)); }
         if (receptionTab) { receptionTab.addEventListener('keydown', (e) => handleArrowKeyNavigation(e, allFocusableElements)); }
     }
-
+    
     //
     // ============================================================================================
     //            以下の関数群は、これまでの修正内容を維持した安定版です
     // ============================================================================================
     //
 
-    // カードHTML生成（検査室リストへの離席ボタン追加を反映）
     function renderPatientCardHTML(patientData, viewType) {
         if (!patientData) return '';
         const isUrgent = patientData.statuses && patientData.statuses.includes('至急対応');
@@ -254,11 +262,11 @@ window.addEventListener('DOMContentLoaded', () => {
             const changeRoomBtnHtml = patientData.isExamining && isGroupRoom ? `<button class="btn btn-small change-room-btn">部屋移動</button>` : '';
             actionsHtml = `<div class="card-actions">${awayButton}${!patientData.isExamining ? '<button class="btn btn-small exam-btn">検査開始</button>' : ''}${patientData.isExamining ? '<button class="btn btn-small finish-exam-btn">検査終了</button>' : ''}${changeRoomBtnHtml}<button class="btn btn-small cancel-btn">受付取消</button></div>`;
         }
+        // 【重要】ここで patientData.id (FirestoreのDoc ID) を data-id 属性に埋め込む
         const docId = patientData.id ? `data-id="${patientData.id}"` : '';
         return `<div class="${cardClasses.join(' ')}" ${docId} draggable="true"><div class="patient-card-drag-area"><span class="drag-handle">⠿</span><div class="card-up-down"><button class="up-btn" aria-label="上へ移動">▲</button><button class="down-btn" aria-label="下へ移動">▼</button></div></div><div class="patient-card-info">${ticketNumberHtml}${patientIdHtml}${receptionTimeHtml}${labsHtml}${statusesHtml}${awayHtml}${specialNotesHtml}${inRoomHtml}${actionsHtml}</div></div>`;
     }
     
-    // データ監視（二重表示対策済み）
     function listenToPatients() {
         patientsCollection.onSnapshot(snapshot => {
             const patientMap = new Map();
@@ -270,8 +278,7 @@ window.addEventListener('DOMContentLoaded', () => {
             renderAll();
         }, error => { console.error("Firestoreからのデータ取得に失敗しました:", error); });
     }
-
-    // 待合画面表示機能
+    
     function renderWaitingDisplay() {
         const waitingDisplayGrid = document.querySelector('#waiting-tab .waiting-display-grid');
         if (!waitingDisplayGrid) return;
@@ -300,7 +307,6 @@ window.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // 画面描画の振り分け
     function renderAll() {
         const activeTab = document.querySelector('.tab-content.active');
         if (!activeTab) return;
@@ -420,6 +426,7 @@ window.addEventListener('DOMContentLoaded', () => {
             tabButtons.forEach(btn => { if (btn.dataset.tab === 'reception-tab') btn.click(); });
             setTimeout(() => {
                 editMode.active = true;
+                // 【重要】ここで Firestore の Doc ID を格納する
                 editMode.patientId = patientId;
                 populateForm(patientToEdit);
                 registerBtn.textContent = '更新';
