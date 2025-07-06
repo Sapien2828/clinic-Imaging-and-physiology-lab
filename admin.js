@@ -25,6 +25,8 @@ window.addEventListener('DOMContentLoaded', () => {
         '骨密度検査室(4番)': null, 'CT撮影室(5番)': null, '乳腺撮影室(10番)': null, '肺機能検査室(12番)': null, 
         '心電図検査室(13番)': null, '透視室(6番)': null, '聴力検査室(7番)': null, '呼吸機能検査室(8番)': null, '血管脈波検査室(9番)': null,
     };
+    const waitingRoomOrder = ['レントゲン撮影室(1番)', 'レントゲン撮影室(2番)', '超音波検査室(3番)', '骨密度検査室(4番)', 'CT撮影室(5番)', '透視室(6番)', '聴力検査室(7番)', '呼吸機能検査室(8番)', '血管脈波検査室(9番)', '乳腺撮影室(10番)', '超音波検査室(11番)', '肺機能検査室(12番)', '心電図検査室(13番)', '超音波検査室(14番)', '超音波検査室(15番)'];
+    const specialNoteRooms = ['CT撮影室(5番)', '超音波検査室(3番)', '超音波検査室(11番)', '超音波検査室(14番)', '超音波検査室(15番)'];
     
     let registeredPatients = []; 
     let editMode = { active: false, patientId: null };
@@ -55,37 +57,68 @@ window.addEventListener('DOMContentLoaded', () => {
     const modalOkBtn = document.getElementById('modal-ok-btn');
     const modalCancelBtn = document.getElementById('modal-cancel-btn');
     const resetAllBtn = document.getElementById('reset-all-btn');
-
+    
 
     /**
-     * ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼【修正点 1】ご提案のロジックを正確に実装 ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
-     * ご提示いただいた、より確実な重複チェック関数をここに定義します。
-     * @param {string} newTicketNumber - チェックする番号札
-     * @param {string|null} currentPatientId - 編集中の患者ID（新規登録時はnull）
-     * @returns {boolean} - 重複している場合はtrueを返す
+     * ▼▼▼▼▼▼▼▼▼【修正点 2】患者待合画面の表示機能を追加 ▼▼▼▼▼▼▼▼▼
+     * display.jsのロジックをこちらに移植し、管理者画面内で呼び出せるようにします。
      */
-    function isDuplicateTicketNumber(newTicketNumber, currentPatientId = null) {
-        return registeredPatients.some(patient => {
-            // 自分自身をチェック対象から除外する
-            if (currentPatientId && patient.id === currentPatientId) {
-                return false;
+    function renderWaitingDisplay() {
+        const waitingDisplayGrid = document.querySelector('#waiting-tab .waiting-display-grid');
+        if (!waitingDisplayGrid) return;
+        
+        waitingDisplayGrid.innerHTML = '';
+        const specialNoteText = '案内票に記載された予約時間を基準にご案内します。必ずしも受付番号順ではありません。また、検査の依頼内容に応じて順番が前後することがあります。あらかじめご了承証ください。';
+        
+        waitingRoomOrder.forEach(roomName => {
+            const nowServingPatient = registeredPatients.find(p => p.isExamining && p.assignedExamRoom === roomName);
+            const nowServingNumber = nowServingPatient ? nowServingPatient.ticketNumber : '-';
+            const groupName = Object.keys(roomConfiguration).find(key => roomConfiguration[key]?.includes(roomName)) || roomName;
+            
+            const waitingPatientsForGroup = registeredPatients.filter(p => p.labs.includes(groupName) && !p.isExamining && !p.isAway);
+            const nextNumbers = waitingPatientsForGroup.slice(0, 10).map(p => `<span>${p.ticketNumber}</span>`).join('') || '-';
+            
+            const patientsForThisGroup = registeredPatients.filter(p => p.labs.includes(groupName));
+            const waitCount = patientsForThisGroup.filter(p => !p.isExamining).length;
+
+            let waitTime = 0;
+            if (waitCount > 0) {
+                const earliestPatient = patientsForThisGroup
+                    .filter(p => !p.isExamining)
+                    .reduce((earliest, current) => new Date(earliest.receptionTime) < new Date(current.receptionTime) ? earliest : current, patientsForThisGroup[0]);
+                if (earliestPatient) {
+                    waitTime = Math.round((new Date() - new Date(earliestPatient.receptionTime)) / (1000 * 60));
+                }
             }
-            // 他の患者で番号が一致するかどうかをチェック
-            return String(patient.ticketNumber) === String(newTicketNumber);
+            
+            const roomNameShort = groupName.split('(')[0];
+            let noteHtml = specialNoteRooms.includes(roomName) ? `<p class="room-note">${specialNoteText}</p>` : '';
+            const cardHtml = `<div class="waiting-room-card" data-room-name="${roomName}"><h3 class="waiting-room-name">${roomName}</h3><div class="waiting-info"><p>待ち: <span class="wait-count">${waitCount}</span>人 / 推定: <span class="wait-time">約${waitTime}</span>分</p></div><div class="now-serving"><h4>検査中</h4><p class="now-serving-number">${nowServingNumber}</p></div><div class="next-in-line"><h4>${roomNameShort}の次の方</h4><p class="next-numbers">${nextNumbers}</p></div>${noteHtml}</div>`;
+            waitingDisplayGrid.insertAdjacentHTML('beforeend', cardHtml);
         });
     }
 
+    // 画面描画の振り分け関数を更新
+    function renderAll() {
+        const activeTab = document.querySelector('.tab-content.active');
+        if (!activeTab) return;
+        const activeTabId = activeTab.id;
+        if (activeTabId === 'reception-tab') renderRegisteredList();
+        else if (activeTabId === 'lab-tab') renderLabWaitingList();
+        else if (activeTabId === 'waiting-tab') renderWaitingDisplay(); // waiting-tabの場合の処理を追加
+    }
+
     /**
-     * ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼【修正点 2】登録処理をゼロベースで再構築 ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
-     * 新しい重複チェック関数を使い、ロジックをシンプルにします。
+     * ▼▼▼▼▼▼▼▼▼【修正点 1】登録・編集ロジックの完全な再構築 ▼▼▼▼▼▼▼▼▼
      */
     async function handleRegistration() {
         const newTicketNumber = ticketNumberInput.value;
         if (!patientIdInput.value || patientIdInput.value.length !== 7) { alert('患者IDは7桁で入力してください。'); return; }
         if (!newTicketNumber) { alert('番号札は必須です。'); return; }
 
-        // 新規登録なので、編集IDは渡さずに重複チェック
-        if (isDuplicateTicketNumber(newTicketNumber)) {
+        //【確実なチェック】DBに直接問い合わせて、同じ番号札がないか確認
+        const querySnapshot = await patientsCollection.where("ticketNumber", "==", newTicketNumber).get();
+        if (!querySnapshot.empty) {
             alert('エラー: この番号札は既に使用されています。');
             return;
         }
@@ -95,24 +128,28 @@ window.addEventListener('DOMContentLoaded', () => {
         resetReceptionForm();
     }
 
-    /**
-     * ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼【修正点 3】更新処理をゼロベースで再構築 ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
-     * こちらも新しい関数を使い、編集中のIDを渡して重複チェックを行います。
-     */
     async function handleUpdate() {
         if (!editMode.active || !editMode.patientId) return;
 
         const newTicketNumber = ticketNumberInput.value;
+        const currentId = editMode.patientId;
         if (!patientIdInput.value || patientIdInput.value.length !== 7) { alert('患者IDは7桁で入力してください。'); return; }
         if (!newTicketNumber) { alert('番号札は必須です。'); return; }
 
-        // 編集なので、現在編集中のID `editMode.patientId` を渡して重複チェック
-        if (isDuplicateTicketNumber(newTicketNumber, editMode.patientId)) {
-            alert('エラー: その番号札は他の患者が既に使用しています。');
-            return;
+        //【確実なチェック】DBに直接問い合わせて、自分以外の患者が同じ番号札を使っていないか確認
+        const querySnapshot = await patientsCollection.where("ticketNumber", "==", newTicketNumber).get();
+        if (!querySnapshot.empty) {
+            // 同じ番号のドキュメントが見つかった場合、それが自分自身でないかを確認
+            const conflictingDoc = querySnapshot.docs.find(doc => doc.id !== currentId);
+            if (conflictingDoc) {
+                // 自分以外のドキュメントが見つかった場合はエラー
+                alert('エラー: その番号札は他の患者が既に使用しています。');
+                return;
+            }
         }
-
-        const patientRef = patientsCollection.doc(editMode.patientId);
+        
+        // ここに到達＝重複なし。更新処理を実行
+        const patientRef = patientsCollection.doc(currentId);
         const doc = await patientRef.get();
         if (!doc.exists) {
             alert("編集対象の患者が見つかりませんでした。");
@@ -139,14 +176,12 @@ window.addEventListener('DOMContentLoaded', () => {
         resetReceptionForm();
     }
 
-
     // ===============================================================
     // ===============================================================
-    //            以下の関数群は前回から変更ありません
-    //            (二重表示を解消した listenToPatients もそのままです)
+    //                以下の関数は、大きな変更はありません
     // ===============================================================
     // ===============================================================
-
+    
     function listenToPatients() {
         patientsCollection.onSnapshot(snapshot => {
             const patientMap = new Map();
@@ -177,14 +212,6 @@ window.addEventListener('DOMContentLoaded', () => {
             handleResetAll(true);
             localStorage.setItem(LAST_ACTIVE_DATE_KEY, today);
         }
-    }
-
-    function renderAll() {
-        const activeTab = document.querySelector('.tab-content.active');
-        if (!activeTab) return;
-        const activeTabId = activeTab.id;
-        if (activeTabId === 'reception-tab') renderRegisteredList();
-        else if (activeTabId === 'lab-tab') renderLabWaitingList();
     }
     
     function initialize() {
