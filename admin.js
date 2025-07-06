@@ -19,6 +19,7 @@ window.addEventListener('DOMContentLoaded', () => {
 
   appId: "1:568457688933:web:2eee210553b939cf39538c"
 
+
     firebase.initializeApp(firebaseConfig);
     const db = firebase.firestore();
     const patientsCollection = db.collection('patients');
