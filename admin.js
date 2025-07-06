@@ -5,7 +5,8 @@ window.addEventListener('DOMContentLoaded', () => {
     }
 
     // Firebase設定
-   const firebaseConfig = {
+
+ const firebaseConfig = {
 
   apiKey: "AIzaSyCsk7SQQY58yKIn-q4ps1gZ2BRbc2k6flE",
 
@@ -107,7 +108,7 @@ function resetReceptionForm() {
 function getCurrentFormData() {
     return {
         patientId: patientIdInput.value,
-        ticketNumber: ticketNumberInput.value,
+        ticketNumber: String(ticketNumberInput.value.trim().padStart(4, '0')),
         labs: Array.from(labSelectionCards).filter(c => c.classList.contains('selected')).map(c => c.dataset.value),
         statuses: Array.from(statusSelectionCards).filter(c => c.classList.contains('selected') || c.classList.contains('selected-urgent')).map(c => c.dataset.value),
         specialNotes: specialNotesInput.value,
@@ -122,6 +123,7 @@ async function handleRegistrationOrUpdate() {
     const newTicketNumber = ticketNumberInput.value.trim();
     const newPatientId = patientIdInput.value.trim();
     const currentDocId = editMode.active ? editMode.docId : null;
+    console.log('[DEBUG] currentDocId:', currentDocId);
 
     if (!newPatientId || newPatientId.length !== 7) {
         alert('患者IDは7桁で入力してください。');
@@ -139,7 +141,14 @@ async function handleRegistrationOrUpdate() {
         console.log("編集中のID:", currentDocId);
         console.log("一致したDoc ID:", querySnapshot.docs.map(d => d.id));
 
-        const conflictDoc = querySnapshot.docs.find(doc => String(doc.id) !== String(currentDocId));
+        let conflictDoc = null;
+    querySnapshot.docs.forEach(doc => {
+        const docTicket = doc.data().ticketNumber;
+        if (String(doc.id) !== String(currentDocId) && docTicket === newTicketNumber) {
+            conflictDoc = doc;
+        }
+    });
+    console.log("[DEBUG] Conflict check done. ConflictDoc ID:", conflictDoc?.id);
 
         if (conflictDoc) {
             alert('エラー: この番号札は他の患者が既に使用しています。');
@@ -734,7 +743,7 @@ async function handleEditButtonClick(docId) {
         const orderValue = registeredPatients.length > 0 ? Math.max(...registeredPatients.filter(p=>p.order !==-1).map(p => p.order).filter(Number.isFinite), 0) + 1 : 0;
         const statuses = Array.from(statusSelectionCards).filter(c => c.classList.contains('selected') || c.classList.contains('selected-urgent')).map(c => c.dataset.value);
         return {
-            patientId: patientIdInput.value, ticketNumber: ticketNumberInput.value, receptionTime: firebase.firestore.FieldValue.serverTimestamp(),
+            patientId: patientIdInput.value, ticketNumber: String(ticketNumberInput.value.trim().padStart(4, '0')), receptionTime: firebase.firestore.FieldValue.serverTimestamp(),
             labs: Array.from(labSelectionCards).filter(c => c.classList.contains('selected')).map(c => c.dataset.value),
             statuses: statuses,
             specialNotes: specialNotesInput.value, isAway: false, awayTime: null, isExamining: false, assignedExamRoom: null, inRoomSince: null,
