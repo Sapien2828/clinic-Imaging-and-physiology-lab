@@ -18,6 +18,7 @@ window.addEventListener('DOMContentLoaded', () => {
     const db = firebase.firestore();
     const patientsCollection = db.collection('patients');
 
+    // グローバル変数
     const LAST_ACTIVE_DATE_KEY = 'receptionLastActiveDate';
     const roomConfiguration = {
         'レントゲン撮影室': ['レントゲン撮影室(1番)', 'レントゲン撮影室(2番)', '透視室(6番)'],
@@ -27,7 +28,6 @@ window.addEventListener('DOMContentLoaded', () => {
     };
     const waitingRoomOrder = ['レントゲン撮影室(1番)', 'レントゲン撮影室(2番)', '超音波検査室(3番)', '骨密度検査室(4番)', 'CT撮影室(5番)', '透視室(6番)', '聴力検査室(7番)', '呼吸機能検査室(8番)', '血管脈波検査室(9番)', '乳腺撮影室(10番)', '超音波検査室(11番)', '肺機能検査室(12番)', '心電図検査室(13番)', '超音波検査室(14番)', '超音波検査室(15番)'];
     const specialNoteRooms = ['CT撮影室(5番)', '超音波検査室(3番)', '超音波検査室(11番)', '超音波検査室(14番)', '超音波検査室(15番)'];
-    
     let registeredPatients = []; 
     let editMode = { active: false, patientId: null };
     let html5QrCode = null;
@@ -59,14 +59,18 @@ window.addEventListener('DOMContentLoaded', () => {
     const modalCancelBtn = document.getElementById('modal-cancel-btn');
     const resetAllBtn = document.getElementById('reset-all-btn');
 
-
+    
     /**
-     * ▼▼▼▼▼▼▼▼▼【修正点 1】ご提案のロジックに基づき、登録と更新を１つの関数に統合 ▼▼▼▼▼▼▼▼▼
+     * =================================================================
+     * ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼【修正の核心部分】▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
+     * =================================================================
+     * ご提案いただいた、登録と更新を統合した関数で、すべての問題を解決します。
      */
     async function handleRegistrationOrUpdate() {
         const newTicketNumber = ticketNumberInput.value;
         const currentPatientId = editMode.active ? editMode.patientId : null;
 
+        // 入力値のバリデーション
         if (!patientIdInput.value || patientIdInput.value.length !== 7) { 
             alert('患者IDは7桁で入力してください。'); 
             return; 
@@ -76,7 +80,7 @@ window.addEventListener('DOMContentLoaded', () => {
             return; 
         }
 
-        // 番号札の重複チェック（自分以外の人が使っていないか確認）
+        // 番号札の重複チェック（自分以外の患者が使っていないかDBに直接確認）
         const querySnapshot = await patientsCollection.where("ticketNumber", "==", newTicketNumber).get();
         const conflictDoc = querySnapshot.docs.find(doc => doc.id !== currentPatientId);
 
@@ -84,8 +88,6 @@ window.addEventListener('DOMContentLoaded', () => {
             alert('エラー: この番号札は他の患者が既に使用しています。');
             return;
         }
-
-        const formData = getCurrentFormData();
 
         if (editMode.active && currentPatientId) {
             // ----- 更新処理 -----
@@ -101,9 +103,9 @@ window.addEventListener('DOMContentLoaded', () => {
             const updatedData = {
                 patientId: patientIdInput.value,
                 ticketNumber: newTicketNumber,
-                labs: formData.labs,
-                statuses: formData.statuses,
-                specialNotes: formData.specialNotes,
+                labs: Array.from(labSelectionCards).filter(c => c.classList.contains('selected')).map(c => c.dataset.value),
+                statuses: Array.from(statusSelectionCards).filter(c => c.classList.contains('selected') || c.classList.contains('selected-urgent')).map(c => c.dataset.value),
+                specialNotes: specialNotesInput.value,
             };
 
             // 状態によるorderの調整
@@ -116,7 +118,8 @@ window.addEventListener('DOMContentLoaded', () => {
             await patientRef.update(updatedData);
         } else {
             // ----- 新規登録処理 -----
-            await patientsCollection.add(formData);
+            const newPatientData = getCurrentFormData();
+            await patientsCollection.add(newPatientData);
         }
 
         resetReceptionForm();
@@ -124,8 +127,94 @@ window.addEventListener('DOMContentLoaded', () => {
 
 
     /**
-     * ▼▼▼▼▼▼▼▼▼【修正点 2】検査室リストに離席ボタンを追加するためのHTML生成ロジック修正 ▼▼▼▼▼▼▼▼▼
+     * =================================================================
+     * ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼【その他の機能と修正】▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
+     * =================================================================
      */
+
+    // イベントリスナー設定（入力制限など、欠落していた機能をすべて復元）
+    function setupEventListeners() {
+        const allFocusableElements = Array.from(receptionTab.querySelectorAll('[tabindex]')).filter(el => el.tabIndex > 0).sort((a, b) => a.tabIndex - b.tabIndex);
+        
+        tabButtons.forEach(button => { button.addEventListener('click', (e) => {
+            const targetTabId = e.currentTarget.dataset.tab;
+            tabButtons.forEach(btn => btn.classList.remove('active'));
+            e.currentTarget.classList.add('active');
+            allTabs.forEach(tab => { if(tab) tab.id === targetTabId ? tab.classList.add('active') : tab.classList.remove('active'); });
+            renderAll();
+        }); });
+        
+        // 【重要】登録ボタンは新しい統合関数を呼び出します
+        if (registerBtn) { registerBtn.addEventListener('click', handleRegistrationOrUpdate); }
+        
+        const setupListEventListeners = (container) => {
+            if (!container) return;
+            container.addEventListener('click', (e) => {
+                const target = e.target.closest('button');
+                if (!target) return;
+                const card = target.closest('.patient-card');
+                if (!card) return;
+                const patientId = card.dataset.id;
+                if (!patientId) return;
+
+                if (target.matches('.away-btn')) handleAwayButtonClick(patientId);
+                if (target.matches('.edit-btn')) handleEditButtonClick(patientId);
+                if (target.matches('.up-btn')) handleMove(patientId, 'up');
+                if (target.matches('.down-btn')) handleMove(patientId, 'down');
+
+                if (container.id === 'registered-list-container' && target.matches('.cancel-btn')) handleCancelButtonClick(patientId);
+                
+                if (container.id === 'lab-waiting-list-container') {
+                    if (target.matches('.exam-btn')) handleExamButtonClick(patientId);
+                    if (target.matches('.finish-exam-btn')) handleFinishExamButtonClick(patientId);
+                    if (target.matches('.change-room-btn')) handleRoomChangeClick(patientId);
+                    if (target.matches('.cancel-btn')) handleCancelLabReception(patientId);
+                }
+            });
+            let draggedItem = null;
+            container.addEventListener('dragstart', (e) => {
+                const target = e.target.closest('.patient-card');
+                if (target && target.dataset.id) {
+                    draggedItem = target; 
+                    setTimeout(() => { if (draggedItem) draggedItem.classList.add('dragging'); }, 0);
+                } else { e.preventDefault(); }
+            });
+            container.addEventListener('dragend', () => { if (draggedItem) { draggedItem.classList.remove('dragging'); draggedItem = null; } });
+            container.addEventListener('dragover', (e) => { e.preventDefault(); const afterElement = getDragAfterElement(container, e.clientY); const currentlyDragged = document.querySelector('.dragging'); if (currentlyDragged) { if (afterElement == null) { container.appendChild(currentlyDragged); } else { container.insertBefore(currentlyDragged, afterElement); } } });
+            container.addEventListener('drop', async (e) => {
+                e.preventDefault();
+                if (!draggedItem) return;
+                draggedItem.classList.remove('dragging');
+                const newOrderedIds = Array.from(container.querySelectorAll('.patient-card')).map(card => card.dataset.id);
+                const batch = db.batch();
+                newOrderedIds.forEach((id, index) => {
+                    const patientRef = patientsCollection.doc(id);
+                    batch.update(patientRef, { order: index });
+                });
+                await batch.commit();
+            });
+        };
+        setupListEventListeners(registeredListContainer);
+        setupListEventListeners(labWaitingListContainer);
+
+        allReceptionCards.forEach(card => {
+            card.addEventListener('click', () => toggleCardSelection(card));
+            card.addEventListener('keydown', (e) => { if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); toggleCardSelection(card); } });
+        });
+        
+        // 【重要】欠落していた入力制限のイベントリスナーを復元
+        if (patientIdInput) { patientIdInput.addEventListener('input', (e) => handlePatientIdInput(e, allFocusableElements)); patientIdInput.addEventListener('blur', handlePatientIdBlur); }
+        if (ticketNumberInput) { ticketNumberInput.addEventListener('input', handleNumericInput); ticketNumberInput.addEventListener('keydown', handleTicketNumberEnter); }
+        if (specialNotesInput) { specialNotesInput.addEventListener('input', updatePreview); }
+        if (receptionQrReaderBtn) { receptionQrReaderBtn.addEventListener('click', () => startCamera('reception')); }
+        if (labQrReaderBtn) { labQrReaderBtn.addEventListener('click', () => startCamera('lab')); }
+        if (stopCameraBtn) { stopCameraBtn.addEventListener('click', stopCamera); }
+        if (labRoomSelect) { labRoomSelect.addEventListener('change', renderLabWaitingList); }
+        if (resetAllBtn) { resetAllBtn.addEventListener('click', () => handleResetAll(false)); }
+        if (receptionTab) { receptionTab.addEventListener('keydown', (e) => handleArrowKeyNavigation(e, allFocusableElements)); }
+    }
+
+    // カードHTML生成（検査室リストへの離席ボタン追加を反映）
     function renderPatientCardHTML(patientData, viewType) {
         if (!patientData) return '';
         const isUrgent = patientData.statuses && patientData.statuses.includes('至急対応');
@@ -160,193 +249,56 @@ window.addEventListener('DOMContentLoaded', () => {
             inRoomHtml = `<p class="in-room-status"><strong>${patientData.assignedExamRoom}</strong> で検査中${sinceText}</p>`;
         }
         
-        // ボタン生成ロジック
         let actionsHtml = '';
-        const awayButton = `<button class="btn btn-small away-btn">${isAway ? '戻り' : '離席'}</button>`; // 離席ボタンを共通化
+        const awayButton = `<button class="btn btn-small away-btn">${isAway ? '戻り' : '離席'}</button>`;
 
         if (viewType === 'reception') {
-            actionsHtml = `
-                <div class="card-actions">
-                    ${awayButton}
-                    <button class="btn btn-small edit-btn">編集</button>
-                    <button class="btn btn-small cancel-btn">受付取消</button>
-                </div>`;
+            actionsHtml = `<div class="card-actions">${awayButton}<button class="btn btn-small edit-btn">編集</button><button class="btn btn-small cancel-btn">受付取消</button></div>`;
         } else if (viewType === 'lab') {
             const isGroupRoom = labRoomSelect.value && roomConfiguration[labRoomSelect.value];
             const changeRoomBtnHtml = patientData.isExamining && isGroupRoom ? `<button class="btn btn-small change-room-btn">部屋移動</button>` : '';
-            actionsHtml = `
-                <div class="card-actions">
-                    ${awayButton} ${!patientData.isExamining ? '<button class="btn btn-small exam-btn">検査開始</button>' : ''}
-                    ${patientData.isExamining ? '<button class="btn btn-small finish-exam-btn">検査終了</button>' : ''}
-                    ${changeRoomBtnHtml}
-                    <button class="btn btn-small cancel-btn">受付取消</button>
-                </div>`;
+            actionsHtml = `<div class="card-actions">${awayButton}${!patientData.isExamining ? '<button class="btn btn-small exam-btn">検査開始</button>' : ''}${patientData.isExamining ? '<button class="btn btn-small finish-exam-btn">検査終了</button>' : ''}${changeRoomBtnHtml}<button class="btn btn-small cancel-btn">受付取消</button></div>`;
         }
 
         const docId = patientData.id ? `data-id="${patientData.id}"` : '';
-        return `
-            <div class="${cardClasses.join(' ')}" ${docId} draggable="true">
-                <div class="patient-card-drag-area">
-                    <span class="drag-handle">⠿</span>
-                    <div class="card-up-down">
-                       <button class="up-btn" aria-label="上へ移動">▲</button>
-                       <button class="down-btn" aria-label="下へ移動">▼</button>
-                    </div>
-                </div>
-                <div class="patient-card-info">
-                    ${ticketNumberHtml}
-                    ${patientIdHtml}
-                    ${receptionTimeHtml}
-                    ${labsHtml}
-                    ${statusesHtml}
-                    ${awayHtml}
-                    ${specialNotesHtml}
-                    ${inRoomHtml}
-                    ${actionsHtml}
-                </div>
-            </div>`;
+        return `<div class="${cardClasses.join(' ')}" ${docId} draggable="true"><div class="patient-card-drag-area"><span class="drag-handle">⠿</span><div class="card-up-down"><button class="up-btn" aria-label="上へ移動">▲</button><button class="down-btn" aria-label="下へ移動">▼</button></div></div><div class="patient-card-info">${ticketNumberHtml}${patientIdHtml}${receptionTimeHtml}${labsHtml}${statusesHtml}${awayHtml}${specialNotesHtml}${inRoomHtml}${actionsHtml}</div></div>`;
     }
-    
-    //
-    // ============================================================================================
-    // 以下の関数群は、呼び出し元の変更や待合画面の追加以外、大きな変更はありません
-    // ============================================================================================
-    //
 
-    function setupEventListeners() {
-        const allFocusableElements = Array.from(receptionTab.querySelectorAll('[tabindex]')).filter(el => el.tabIndex > 0).sort((a, b) => a.tabIndex - b.tabIndex);
-        tabButtons.forEach(button => { button.addEventListener('click', (e) => {
-            const targetTabId = e.currentTarget.dataset.tab;
-            tabButtons.forEach(btn => btn.classList.remove('active'));
-            e.currentTarget.classList.add('active');
-            allTabs.forEach(tab => { if(tab) tab.id === targetTabId ? tab.classList.add('active') : tab.classList.remove('active'); });
-            renderAll();
-        }); });
-        
-        // 登録ボタンのイベントリスナーを新しい統合関数に一本化
-        if (registerBtn) { registerBtn.addEventListener('click', handleRegistrationOrUpdate); }
-        
-        const setupListEventListeners = (container) => {
-            if (!container) return;
-            container.addEventListener('click', (e) => {
-                const target = e.target.closest('button');
-                if (!target) return;
-                const card = target.closest('.patient-card');
-                if (!card) return;
-                const patientId = card.dataset.id;
-                if (!patientId) return;
-
-                // 離席ボタンはどのリストでも共通で動作
-                if (target.matches('.away-btn')) handleAwayButtonClick(patientId);
-                if (target.matches('.edit-btn')) handleEditButtonClick(patientId);
-                if (target.matches('.up-btn')) handleMove(patientId, 'up');
-                if (target.matches('.down-btn')) handleMove(patientId, 'down');
-
-                if (container.id === 'registered-list-container' && target.matches('.cancel-btn')) handleCancelButtonClick(patientId);
-                
-                if (container.id === 'lab-waiting-list-container') {
-                    if (target.matches('.exam-btn')) handleExamButtonClick(patientId);
-                    if (target.matches('.finish-exam-btn')) handleFinishExamButtonClick(patientId);
-                    if (target.matches('.change-room-btn')) handleRoomChangeClick(patientId);
-                    if (target.matches('.cancel-btn')) handleCancelLabReception(patientId);
-                }
-            });
-            let draggedItem = null;
-            container.addEventListener('dragstart', (e) => {
-                const target = e.target.closest('.patient-card');
-                if (target && target.dataset.id) {
-                    draggedItem = target; 
-                    setTimeout(() => { if (draggedItem) draggedItem.classList.add('dragging'); }, 0);
-                } else {
-                    e.preventDefault();
-                }
-            });
-            container.addEventListener('dragend', () => { if (draggedItem) { draggedItem.classList.remove('dragging'); draggedItem = null; } });
-            container.addEventListener('dragover', (e) => { e.preventDefault(); const afterElement = getDragAfterElement(container, e.clientY); const currentlyDragged = document.querySelector('.dragging'); if (currentlyDragged) { if (afterElement == null) { container.appendChild(currentlyDragged); } else { container.insertBefore(currentlyDragged, afterElement); } } });
-            container.addEventListener('drop', async (e) => {
-                e.preventDefault();
-                if (!draggedItem) return;
-                draggedItem.classList.remove('dragging');
-                const newOrderedIds = Array.from(container.querySelectorAll('.patient-card')).map(card => card.dataset.id);
-                const batch = db.batch();
-                newOrderedIds.forEach((id, index) => {
-                    const patientRef = patientsCollection.doc(id);
-                    batch.update(patientRef, { order: index });
-                });
-                await batch.commit();
-            });
-        };
-        setupListEventListeners(registeredListContainer);
-        setupListEventListeners(labWaitingListContainer);
-
-        allReceptionCards.forEach(card => {
-            card.addEventListener('click', () => toggleCardSelection(card));
-            card.addEventListener('keydown', (e) => { if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); toggleCardSelection(card); } });
-        });
-        
-        if (patientIdInput) { patientIdInput.addEventListener('input', (e) => handlePatientIdInput(e, allFocusableElements)); patientIdInput.addEventListener('blur', handlePatientIdBlur); }
-        if (ticketNumberInput) { ticketNumberInput.addEventListener('input', handleNumericInput); ticketNumberInput.addEventListener('keydown', handleTicketNumberEnter); }
-        if (specialNotesInput) { specialNotesInput.addEventListener('input', updatePreview); }
-        if (receptionQrReaderBtn) { receptionQrReaderBtn.addEventListener('click', () => startCamera('reception')); }
-        if (labQrReaderBtn) { labQrReaderBtn.addEventListener('click', () => startCamera('lab')); }
-        if (stopCameraBtn) { stopCameraBtn.addEventListener('click', stopCamera); }
-        if (labRoomSelect) { labRoomSelect.addEventListener('change', renderLabWaitingList); }
-        if (resetAllBtn) { resetAllBtn.addEventListener('click', () => handleResetAll(false)); }
-        if (receptionTab) { receptionTab.addEventListener('keydown', (e) => handleArrowKeyNavigation(e, allFocusableElements)); }
-    }
-    
+    // データ監視（二重表示対策済み）
     function listenToPatients() {
         patientsCollection.onSnapshot(snapshot => {
             const patientMap = new Map();
             snapshot.docs.forEach(doc => {
                 const data = doc.data();
-                patientMap.set(doc.id, {
-                    id: doc.id,
-                    ...data,
-                    receptionTime: data.receptionTime?.toDate(),
-                    awayTime: data.awayTime ? data.awayTime.toDate() : null,
-                    inRoomSince: data.inRoomSince ? data.inRoomSince.toDate() : null,
-                });
+                patientMap.set(doc.id, { id: doc.id, ...data, receptionTime: data.receptionTime?.toDate(), awayTime: data.awayTime ? data.awayTime.toDate() : null, inRoomSince: data.inRoomSince ? data.inRoomSince.toDate() : null });
             });
-            
-            registeredPatients = Array.from(patientMap.values())
-                .sort((a, b) => a.order - b.order);
-                
+            registeredPatients = Array.from(patientMap.values()).sort((a, b) => a.order - b.order);
             renderAll();
-        }, error => {
-            console.error("Firestoreからのデータ取得に失敗しました:", error);
-        });
+        }, error => { console.error("Firestoreからのデータ取得に失敗しました:", error); });
     }
-    
+
+    // 待合画面表示機能
     function renderWaitingDisplay() {
         const waitingDisplayGrid = document.querySelector('#waiting-tab .waiting-display-grid');
         if (!waitingDisplayGrid) return;
-        
         waitingDisplayGrid.innerHTML = '';
         const specialNoteText = '案内票に記載された予約時間を基準にご案内します。必ずしも受付番号順ではありません。また、検査の依頼内容に応じて順番が前後することがあります。あらかじめご了承証ください。';
-        
         waitingRoomOrder.forEach(roomName => {
             const nowServingPatient = registeredPatients.find(p => p.isExamining && p.assignedExamRoom === roomName);
             const nowServingNumber = nowServingPatient ? nowServingPatient.ticketNumber : '-';
             const groupName = Object.keys(roomConfiguration).find(key => roomConfiguration[key]?.includes(roomName)) || roomName;
-            
             const waitingPatientsForGroup = registeredPatients.filter(p => p.labs.includes(groupName) && !p.isExamining && !p.isAway);
             const nextNumbers = waitingPatientsForGroup.slice(0, 10).map(p => `<span>${p.ticketNumber}</span>`).join('') || '-';
-            
             const patientsForThisGroup = registeredPatients.filter(p => p.labs.includes(groupName));
             const waitCount = patientsForThisGroup.filter(p => !p.isExamining).length;
-
             let waitTime = 0;
             const waitingForThisGroup = patientsForThisGroup.filter(p => !p.isExamining);
             if (waitingForThisGroup.length > 0) {
-                const earliestPatient = waitingForThisGroup.reduce((earliest, current) => 
-                    new Date(earliest.receptionTime) < new Date(current.receptionTime) ? earliest : current
-                );
+                const earliestPatient = waitingForThisGroup.reduce((earliest, current) => new Date(earliest.receptionTime) < new Date(current.receptionTime) ? earliest : current);
                 if (earliestPatient && earliestPatient.receptionTime) {
                     waitTime = Math.round((new Date() - earliestPatient.receptionTime) / (1000 * 60));
                 }
             }
-            
             const roomNameShort = groupName.split('(')[0];
             let noteHtml = specialNoteRooms.includes(roomName) ? `<p class="room-note">${specialNoteText}</p>` : '';
             const cardHtml = `<div class="waiting-room-card" data-room-name="${roomName}"><h3 class="waiting-room-name">${roomName}</h3><div class="waiting-info"><p>待ち: <span class="wait-count">${waitCount}</span>人 / 推定: <span class="wait-time">約${waitTime}</span>分</p></div><div class="now-serving"><h4>検査中</h4><p class="now-serving-number">${nowServingNumber}</p></div><div class="next-in-line"><h4>${roomNameShort}の次の方</h4><p class="next-numbers">${nextNumbers}</p></div>${noteHtml}</div>`;
@@ -354,6 +306,19 @@ window.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+    // 画面描画の振り分け
+    function renderAll() {
+        const activeTab = document.querySelector('.tab-content.active');
+        if (!activeTab) return;
+        const activeTabId = activeTab.id;
+        if (activeTabId === 'reception-tab') renderRegisteredList();
+        else if (activeTabId === 'lab-tab') renderLabWaitingList();
+        else if (activeTabId === 'waiting-tab') renderWaitingDisplay();
+    }
+    
+    //
+    // 以下のヘルパー関数群は、これまでの修正で安定しているため変更ありません
+    //
     function checkAndResetDailyData() {
         const today = new Date().toISOString().split('T')[0];
         const lastDate = localStorage.getItem(LAST_ACTIVE_DATE_KEY);
@@ -362,7 +327,6 @@ window.addEventListener('DOMContentLoaded', () => {
             localStorage.setItem(LAST_ACTIVE_DATE_KEY, today);
         }
     }
-
     function initialize() {
         if (!document.querySelector('.admin-container')) return;
         checkAndResetDailyData();
@@ -416,15 +380,9 @@ window.addEventListener('DOMContentLoaded', () => {
         const finishedRoom = selectedPatient.assignedExamRoom;
         const finishedGroup = Object.keys(roomConfiguration).find(key => roomConfiguration[key]?.includes(finishedRoom)) || finishedRoom;
         const remainingLabs = selectedPatient.labs.filter(lab => lab !== finishedGroup);
-        await patientRef.update({
-            isExamining: false,
-            assignedExamRoom: null,
-            inRoomSince: null,
-            labs: remainingLabs
-        });
+        await patientRef.update({ isExamining: false, assignedExamRoom: null, inRoomSince: null, labs: remainingLabs });
         if (remainingLabs.length > 0) {
-            const bodyHtml = `<p><strong>${finishedRoom}</strong> での検査は終了しました。</p><p>この患者にはまだ次の検査が残っています:<br><strong>${remainingLabs.join(', ')}</strong></p>`;
-            showModal('次の検査があります', bodyHtml, closeModal, false);
+            showModal('次の検査があります', `<p><strong>${finishedRoom}</strong> での検査は終了しました。</p><p>この患者にはまだ次の検査が残っています:<br><strong>${remainingLabs.join(', ')}</strong></p>`, closeModal, false);
         } else {
             showModal('全検査完了', `<p>番号: <strong>${selectedPatient.ticketNumber}</strong> の全検査が完了しました。</p>`, closeModal, false);
         }
@@ -670,9 +628,7 @@ window.addEventListener('DOMContentLoaded', () => {
     }
     function handlePatientIdInput(e, focusableElements) {
         let value = e.target.value.replace(/\D/g, '');
-        if (value.length > 7) {
-            value = value.slice(0, 7);
-        }
+        if (value.length > 7) { value = value.slice(0, 7); }
         e.target.value = value;
         if (e.target.value.length === 7) {
             const currentTabIndex = document.activeElement.tabIndex;
@@ -690,9 +646,7 @@ window.addEventListener('DOMContentLoaded', () => {
     }
     function handleNumericInput(event) {
         let value = event.target.value.replace(/[^0-9]/g, '');
-        if (value.length > 4) {
-            value = value.slice(0, 4);
-        }
+        if (value.length > 4) { value = value.slice(0, 4); }
         event.target.value = value;
         updatePreview();
     }
@@ -749,5 +703,6 @@ window.addEventListener('DOMContentLoaded', () => {
         if (shouldFocus) { patientIdInput.focus(); }
     }
         
+    // アプリケーションの開始
     initialize();
 });
