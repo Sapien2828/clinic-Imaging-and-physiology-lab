@@ -4,8 +4,7 @@ window.addEventListener('DOMContentLoaded', () => {
         return;
     }
 
-    // ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
-    // 【重要】あなた自身のFirebase設定をここに貼り付けてください
+    // Firebase設定
     const firebaseConfig = {
         apiKey: "AIzaSyCsk7SQQY58yKIn-q4ps1gZ2BRbc2k6flE",
         authDomain: "clinic-imaging-and-physiology.firebaseapp.com",
@@ -14,12 +13,12 @@ window.addEventListener('DOMContentLoaded', () => {
         messagingSenderId: "568457688933",
         appId: "1:568457688933:web:2eee210553b939cf39538c"
     };
-    // ▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲
 
     firebase.initializeApp(firebaseConfig);
     const db = firebase.firestore();
     const patientsCollection = db.collection('patients');
 
+    // ... (以前の変数定義は変更なし) ...
     const LAST_ACTIVE_DATE_KEY = 'receptionLastActiveDate';
     const roomConfiguration = {
         'レントゲン撮影室': ['レントゲン撮影室(1番)', 'レントゲン撮影室(2番)', '透視室(6番)'],
@@ -58,6 +57,120 @@ window.addEventListener('DOMContentLoaded', () => {
     const modalCancelBtn = document.getElementById('modal-cancel-btn');
     const resetAllBtn = document.getElementById('reset-all-btn');
 
+
+    /**
+     * ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼【修正点 1-A】ご提案のロジックを関数化 ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
+     * ご提案いただいたロジックを基に、重複チェックを行うヘルパー関数を定義します。
+     * @param {string} ticketNumber - チェックする番号札
+     * @param {string|null} editingId - 編集中の患者ID（新規登録時はnull）
+     * @returns {boolean} - 重複している場合はtrue
+     */
+    function isDuplicateTicketNumber(ticketNumber, editingId = null) {
+        return registeredPatients.some(patient => 
+            patient.ticketNumber === ticketNumber && patient.id !== editingId
+        );
+    }
+
+    /**
+     * ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼【修正点 2】二重表示問題への最終対策 ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
+     * Firestoreからのデータ受信時に、Mapを使ってIDの重複を完全に排除してから
+     * `registeredPatients` 配列を生成します。これにより、描画の重複を防ぎます。
+     */
+    function listenToPatients() {
+        patientsCollection.onSnapshot(snapshot => {
+            const patientMap = new Map();
+            snapshot.docs.forEach(doc => {
+                const data = doc.data();
+                patientMap.set(doc.id, {
+                    id: doc.id,
+                    ...data,
+                    receptionTime: data.receptionTime?.toDate(),
+                    awayTime: data.awayTime ? data.awayTime.toDate() : null,
+                    inRoomSince: data.inRoomSince ? data.inRoomSince.toDate() : null,
+                });
+            });
+            
+            // Mapから値を取り出して配列にし、orderプロパティでソートする
+            registeredPatients = Array.from(patientMap.values())
+                .sort((a, b) => a.order - b.order);
+                
+            renderAll();
+        }, error => {
+            console.error("Firestoreからのデータ取得に失敗しました:", error);
+        });
+    }
+
+    /**
+     * ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼【修正点 1-B】新規登録時の重複チェックを修正 ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
+     * 新しく作成した isDuplicateTicketNumber 関数を使ってチェックします。
+     */
+    async function handleRegistration() {
+        const newTicketNumber = ticketNumberInput.value;
+        if (!patientIdInput.value || patientIdInput.value.length !== 7) { alert('患者IDは7桁で入力してください。'); return; }
+        if (!newTicketNumber) { alert('番号札は必須です。'); return; }
+
+        // 新規登録なので、第2引数は渡さずにチェック
+        if (isDuplicateTicketNumber(newTicketNumber)) {
+            alert('エラー: この番号札は既に使用されています。');
+            return;
+        }
+        
+        const newPatientData = getCurrentFormData();
+        await patientsCollection.add(newPatientData);
+        resetReceptionForm();
+    }
+
+    /**
+     * ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼【修正点 1-C】編集時の重複チェックを修正 ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
+     * こちらも isDuplicateTicketNumber 関数を使い、第2引数に編集中のIDを渡します。
+     * これにより、自分自身の番号札は重複チェックから除外されます。
+     */
+    async function handleUpdate() {
+        if (!editMode.active || !editMode.patientId) return;
+
+        const newTicketNumber = ticketNumberInput.value;
+        if (!patientIdInput.value || patientIdInput.value.length !== 7) { alert('患者IDは7桁で入力してください。'); return; }
+        if (!newTicketNumber) { alert('番号札は必須です。'); return; }
+
+        // 編集時は、第2引数に編集中のIDを渡してチェック
+        if (isDuplicateTicketNumber(newTicketNumber, editMode.patientId)) {
+            alert('エラー: その番号札は他の患者が既に使用しています。');
+            return;
+        }
+
+        const patientRef = patientsCollection.doc(editMode.patientId);
+        const doc = await patientRef.get();
+        if (!doc.exists) {
+            alert("編集対象の患者が見つかりませんでした。");
+            resetReceptionForm();
+            return;
+        }
+        const originalData = doc.data();
+
+        const updatedData = {
+            patientId: patientIdInput.value,
+            ticketNumber: newTicketNumber,
+            labs: Array.from(labSelectionCards).filter(c => c.classList.contains('selected')).map(c => c.dataset.value),
+            statuses: Array.from(statusSelectionCards).filter(c => c.classList.contains('selected') || c.classList.contains('selected-urgent')).map(c => c.dataset.value),
+            specialNotes: specialNotesInput.value,
+        };
+        
+        if (updatedData.statuses.includes('至急対応') && !originalData.statuses.includes('至急対応')) {
+            updatedData.order = -1; 
+        } else if (!updatedData.statuses.includes('至急対応') && originalData.statuses.includes('至急対応')) {
+            updatedData.order = Date.now(); 
+        }
+        
+        await patientRef.update(updatedData);
+        resetReceptionForm();
+    }
+
+    // ===============================================================
+    // ===============================================================
+    //            以下の関数群は前回から変更ありません
+    // ===============================================================
+    // ===============================================================
+
     function checkAndResetDailyData() {
         const today = new Date().toISOString().split('T')[0];
         const lastDate = localStorage.getItem(LAST_ACTIVE_DATE_KEY);
@@ -78,30 +191,12 @@ window.addEventListener('DOMContentLoaded', () => {
     function initialize() {
         if (!document.querySelector('.admin-container')) return;
         checkAndResetDailyData();
+        listenToPatients(); // 修正済みの関数を呼び出し
         setupEventListeners();
         populateLabRoomSelect();
-        listenToPatients(); 
         if (previewArea) updatePreview();
     }
-
-    function listenToPatients() {
-        patientsCollection.orderBy("order").onSnapshot(snapshot => {
-            registeredPatients = snapshot.docs.map(doc => {
-                const data = doc.data();
-                return {
-                    id: doc.id,
-                    ...data,
-                    receptionTime: data.receptionTime?.toDate(),
-                    awayTime: data.awayTime ? data.awayTime.toDate() : null,
-                    inRoomSince: data.inRoomSince ? data.inRoomSince.toDate() : null,
-                };
-            });
-            renderAll();
-        }, error => {
-            console.error("Firestoreからのデータ取得に失敗しました:", error);
-        });
-    }
-
+    
     function renderPatientCardHTML(patientData, viewType) {
         if (!patientData) return '';
 
@@ -360,69 +455,6 @@ window.addEventListener('DOMContentLoaded', () => {
         }
     }
     
-    async function handleRegistration() {
-        const newPatientData = getCurrentFormData();
-        if (!newPatientData.patientId || newPatientData.patientId.length !== 7) { alert('患者IDは7桁で入力してください。'); return; }
-        if (!newPatientData.ticketNumber) { alert('番号札は必須です。'); return; }
-
-        const querySnapshot = await patientsCollection.where("ticketNumber", "==", newPatientData.ticketNumber).get();
-        if (!querySnapshot.empty) { alert('エラー: この番号札は既に使用されています。'); return; }
-        
-        await patientsCollection.add(newPatientData);
-        resetReceptionForm();
-    }
-
-    /**
-     * ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼【修正点 1】編集時の重複エラー解消 ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
-     * handleUpdateのロジックを全面的に見直し、より確実な方法で重複チェックを行います。
-     */
-    async function handleUpdate() {
-        if (!editMode.active || !editMode.patientId) return;
-
-        const newTicketNumber = ticketNumberInput.value;
-        const newPatientId = patientIdInput.value;
-
-        if (!newPatientId || newPatientId.length !== 7) { alert('患者IDは7桁で入力してください。'); return; }
-        if (!newTicketNumber) { alert('番号札は必須です。'); return; }
-
-        const patientRef = patientsCollection.doc(editMode.patientId);
-        const doc = await patientRef.get();
-        if (!doc.exists) {
-            alert("編集対象の患者が見つかりませんでした。");
-            resetReceptionForm();
-            return;
-        }
-        const originalData = doc.data();
-
-        // 番号札が変更されたかどうかをチェック
-        if (originalData.ticketNumber !== newTicketNumber) {
-            // 変更された場合のみ、新しい番号が他の患者に使われていないかチェック
-            const querySnapshot = await patientsCollection.where("ticketNumber", "==", newTicketNumber).get();
-            if (!querySnapshot.empty) {
-                alert('エラー: その番号札は他の患者が既に使用しています。');
-                return; // 更新を中止
-            }
-        }
-
-        // ここに到達した場合、番号札は問題ない（変更なしか、ユニークな番号への変更）
-        const updatedData = {
-            patientId: newPatientId,
-            ticketNumber: newTicketNumber,
-            labs: Array.from(labSelectionCards).filter(c => c.classList.contains('selected')).map(c => c.dataset.value),
-            statuses: Array.from(statusSelectionCards).filter(c => c.classList.contains('selected') || c.classList.contains('selected-urgent')).map(c => c.dataset.value),
-            specialNotes: specialNotesInput.value,
-        };
-        
-        if (updatedData.statuses.includes('至急対応') && !originalData.statuses.includes('至急対応')) {
-            updatedData.order = -1; 
-        } else if (!updatedData.statuses.includes('至急対応') && originalData.statuses.includes('至急対応')) {
-            updatedData.order = Date.now(); 
-        }
-        
-        await patientRef.update(updatedData);
-        resetReceptionForm();
-    }
-    
     async function handleEditButtonClick(patientId) {
         const docRef = patientsCollection.doc(patientId);
         const doc = await docRef.get();
@@ -497,15 +529,10 @@ window.addEventListener('DOMContentLoaded', () => {
         }
     }
     
-    /**
-     * ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼【修正点 2】二重表示問題の解消 ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
-     * 描画前にリストを空にする処理を、より確実な `while` ループを使った方法に変更します。
-     */
     function renderRegisteredList() {
         if (!registeredListContainer) return;
         const listScrollTop = registeredListContainer.scrollTop;
         
-        // 確実性を高めるために、innerHTML = '' から子要素を一つずつ削除する方法に変更
         while (registeredListContainer.firstChild) {
             registeredListContainer.removeChild(registeredListContainer.firstChild);
         }
