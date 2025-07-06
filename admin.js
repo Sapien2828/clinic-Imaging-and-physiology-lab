@@ -40,7 +40,6 @@ window.addEventListener('DOMContentLoaded', () => {
 
     let registeredPatients = []; 
     let editMode = { active: false, patientId: null };
-    let mediaStream = null;
     let qrScanContext = null;
     let html5QrCode = null;
 
@@ -293,6 +292,7 @@ window.addEventListener('DOMContentLoaded', () => {
     async function handleRegistration() {
         const newPatientData = getCurrentFormData();
         if (!newPatientData.patientId || !newPatientData.ticketNumber) { alert('患者IDと番号札は必須です。'); return; }
+        if (newPatientData.labs.length === 0) { alert('検査室を一つ以上選択してください。'); return; }
         const querySnapshot = await patientsCollection.where("ticketNumber", "==", newPatientData.ticketNumber).get();
         if (!querySnapshot.empty) { alert('エラー: この番号札は既に使用されています。'); return; }
         await patientsCollection.add(newPatientData);
@@ -519,40 +519,81 @@ window.addEventListener('DOMContentLoaded', () => {
     }
     
     function startCamera(context) {
+        // 注記: カメラ機能はセキュアなコンテキスト(HTTPS)でのみ動作します。
+        // ローカルでテストする場合は 'http://localhost' や 'http://127.0.0.1' を使用するか、
+        // ローカル開発サーバーをHTTPSで実行する必要があります。'file://' プロトコルでは動作しません。
         if (!cameraContainer || !qrReaderDiv) return;
         qrScanContext = context;
         if (!html5QrCode) {
-            html5QrCode = new Html5Qrcode("qr-reader");
+            try {
+                html5QrCode = new Html5Qrcode("qr-reader");
+            } catch (e) {
+                console.error("Html5Qrcodeの初期化に失敗しました。", e);
+                alert("QRコードリーダーの初期化に失敗しました。ページを再読み込みしてください。");
+                return;
+            }
         }
         cameraContainer.classList.add('is-visible');
         const config = { fps: 10, qrbox: { width: 250, height: 250 } };
+
+        // 環境カメラ（背面カメラ）を優先して使用します。
         html5QrCode.start({ facingMode: "environment" }, config, onQrSuccess, onQrFailure)
-            .catch(err => console.error("QRカメラの起動に失敗:", err));
+            .catch(err => {
+                console.warn("背面カメラの起動に失敗:", err, "前面カメラで再試行します。");
+                // 背面カメラに失敗した場合、ユーザーカメラ（前面カメラ）で試行
+                html5QrCode.start({ facingMode: "user" }, config, onQrSuccess, onQrFailure)
+                    .catch(err2 => {
+                        console.error("QRカメラの起動に失敗しました:", err2);
+                        alert("カメラの起動に失敗しました。ブラウザのカメラアクセス許可を確認してください。\nHTTPS接続が必要な場合があります。");
+                        stopCamera();
+                    });
+            });
     }
+
     function onQrSuccess(decodedText, decodedResult) {
         stopCamera();
-        const validQrPattern = /^[1-9][0-9]{0,3}$/; // 1-9999
+        // 要望に応じてQRコードのバリデーションを0-9999の数値に変更
+        const validQrPattern = /^[0-9]{1,4}$/; 
         if (validQrPattern.test(decodedText)) {
             if (qrScanContext === 'reception') {
                 ticketNumberInput.value = decodedText;
-                ticketNumberInput.dispatchEvent(new Event('input', { bubbles: true }));
-                setTimeout(() => registerBtn.click(), 100);
+                updatePreview();
+
+                const patientId = patientIdInput.value;
+                const selectedLabs = Array.from(labSelectionCards).filter(c => c.classList.contains('selected'));
+                
+                // 患者IDが7桁で、検査室が1つ以上選択されていれば自動登録
+                if (patientId.length === 7 && selectedLabs.length > 0) {
+                    registerBtn.click();
+                }
             } else if (qrScanContext === 'lab') {
-                const patient = registeredPatients.find(p => p.ticketNumber === decodedText && p.labs.includes(labRoomSelect.value));
+                const selectedLab = labRoomSelect.value;
+                if (!selectedLab) {
+                    alert('先に検査室を選択してください。');
+                    return;
+                }
+                const patient = registeredPatients.find(p => p.ticketNumber === decodedText && p.labs.includes(selectedLab));
                 if (patient) {
                    handleExamButtonClick(patient.id);
                 } else {
-                    alert(`番号札「${decodedText}」の患者は、このリストに見つかりませんでした。`);
+                    alert(`番号札「${decodedText}」の患者は、この検査（${selectedLab}）の待機リストに見つかりませんでした。`);
                 }
             }
         } else {
-            alert(`無効なQRコードです: ${decodedText}`);
+            alert(`無効なQRコードです。0-9999の数値を読み取ってください。\n(読み取り値: ${decodedText})`);
         }
     }
-    function onQrFailure(error) { /* console.log(`QR error = ${error}`); */ }
+
+    function onQrFailure(error) { /* 読み取り中のエラーはコンソールに表示しない */ }
+
     function stopCamera() {
         if (html5QrCode && html5QrCode.isScanning) {
-            html5QrCode.stop().then(() => cameraContainer.classList.remove('is-visible')).catch(err => {});
+            html5QrCode.stop().then(() => {
+                cameraContainer.classList.remove('is-visible');
+            }).catch(err => {
+                console.error("カメラの停止に失敗しました。", err);
+                cameraContainer.classList.remove('is-visible');
+            });
         } else {
             cameraContainer.classList.remove('is-visible');
         }
@@ -647,22 +688,55 @@ window.addEventListener('DOMContentLoaded', () => {
     }
 
     function getCurrentFormData() {
+        const labs = Array.from(labSelectionCards)
+            .filter(c => c.classList.contains('selected'))
+            .map(c => c.dataset.value);
+        const statuses = Array.from(statusSelectionCards)
+            .filter(c => c.classList.contains('selected') || c.classList.contains('selected-urgent'))
+            .map(c => c.dataset.value);
+        
+        let order = Date.now();
+        if (statuses.includes('至急対応')) {
+            const minOrder = registeredPatients.length > 0 ? Math.min(...registeredPatients.map(p => p.order)) : 0;
+            order = minOrder - 1;
+        }
+
         return {
-            patientId: patientIdInput.value, ticketNumber: ticketNumberInput.value, receptionTime: firebase.firestore.FieldValue.serverTimestamp(),
-            labs: Array.from(labSelectionCards).filter(c => c.classList.contains('selected')).map(c => c.dataset.value),
-            statuses: Array.from(statusSelectionCards).filter(c => c.classList.contains('selected') || c.classList.contains('selected-urgent')).map(c => c.dataset.value),
-            specialNotes: specialNotesInput.value, isAway: false, awayTime: null, isExamining: false, assignedExamRoom: null, inRoomSince: null,
-            order: registeredPatients.length > 0 ? Math.max(...registeredPatients.map(p => p.order)) + 1 : 0
+            patientId: patientIdInput.value,
+            ticketNumber: ticketNumberInput.value,
+            receptionTime: firebase.firestore.FieldValue.serverTimestamp(),
+            labs: labs,
+            statuses: statuses,
+            specialNotes: specialNotesInput.value,
+            isAway: false,
+            awayTime: null,
+            isExamining: false,
+            assignedExamRoom: null,
+            inRoomSince: null,
+            order: order
         };
     }
 
+
     function updatePreview() {
         if (!previewArea) return;
-        const formData = getCurrentFormData();
+        // プレビュー用に仮のデータを生成（サーバータイムスタンプは使えないため）
+        const formData = {
+            patientId: patientIdInput.value,
+            ticketNumber: ticketNumberInput.value,
+            receptionTime: new Date(), // 仮の現在時刻
+            labs: Array.from(labSelectionCards).filter(c => c.classList.contains('selected')).map(c => c.dataset.value),
+            statuses: Array.from(statusSelectionCards).filter(c => c.classList.contains('selected') || c.classList.contains('selected-urgent')).map(c => c.dataset.value),
+            specialNotes: specialNotesInput.value,
+            isAway: false, awayTime: null, isExamining: false, assignedExamRoom: null, inRoomSince: null,
+        };
+
         if (!formData.patientId && !formData.ticketNumber && formData.labs.length === 0 && formData.statuses.length === 0 && !formData.specialNotes) {
-            previewArea.innerHTML = '<p class="no-patients">入力するとここにプレビューが表示されます。</p>'; return;
+            previewArea.innerHTML = '<p class="no-patients">入力するとここにプレビューが表示されます。</p>';
+            return;
         }
-        formData.receptionTime = new Date();
+        
+        // renderPatientCardHTMLはDateオブジェクトを期待するため、仮のデータで呼び出す
         previewArea.innerHTML = renderPatientCardHTML(formData, 'reception');
     }
 
