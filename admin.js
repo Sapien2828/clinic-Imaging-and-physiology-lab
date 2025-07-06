@@ -59,38 +59,38 @@ window.addEventListener('DOMContentLoaded', () => {
     const modalCancelBtn = document.getElementById('modal-cancel-btn');
     const resetAllBtn = document.getElementById('reset-all-btn');
 
-    
+
     /**
      * =================================================================
-     * ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼【修正の核心部分】▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
+     * 【最終FIX】ご提案いただいたロジックに基づく、登録・更新の統合関数
      * =================================================================
-     * ご提案いただいた、登録と更新を統合した関数で、すべての問題を解決します。
      */
     async function handleRegistrationOrUpdate() {
         const newTicketNumber = ticketNumberInput.value;
-        const currentPatientId = editMode.active ? editMode.patientId : null;
+        const newPatientId = patientIdInput.value;
+        const currentPatientId = editMode.active ? String(editMode.patientId) : null;
 
-        // 入力値のバリデーション
-        if (!patientIdInput.value || patientIdInput.value.length !== 7) { 
-            alert('患者IDは7桁で入力してください。'); 
-            return; 
+        if (!newPatientId || newPatientId.length !== 7) {
+            alert('患者IDは7桁で入力してください。');
+            return;
         }
-        if (!newTicketNumber) { 
-            alert('番号札は必須です。'); 
-            return; 
+        if (!newTicketNumber) {
+            alert('番号札は必須です。');
+            return;
         }
 
-        // 番号札の重複チェック（自分以外の患者が使っていないかDBに直接確認）
+        // Firestore から ticketNumber が重複していないか確認
         const querySnapshot = await patientsCollection.where("ticketNumber", "==", newTicketNumber).get();
-        const conflictDoc = querySnapshot.docs.find(doc => doc.id !== currentPatientId);
 
+        // 自分のドキュメント以外に同じ ticketNumber を使っている人がいたらエラー
+        const conflictDoc = querySnapshot.docs.find(doc => String(doc.id) !== currentPatientId);
         if (conflictDoc) {
             alert('エラー: この番号札は他の患者が既に使用しています。');
             return;
         }
 
         if (editMode.active && currentPatientId) {
-            // ----- 更新処理 -----
+            // -------------------- 更新処理 --------------------
             const patientRef = patientsCollection.doc(currentPatientId);
             const doc = await patientRef.get();
             if (!doc.exists) {
@@ -100,15 +100,16 @@ window.addEventListener('DOMContentLoaded', () => {
             }
 
             const originalData = doc.data();
+            // 更新時は、変更可能なフィールドのみを抽出してデータを作成
             const updatedData = {
-                patientId: patientIdInput.value,
+                patientId: newPatientId,
                 ticketNumber: newTicketNumber,
                 labs: Array.from(labSelectionCards).filter(c => c.classList.contains('selected')).map(c => c.dataset.value),
                 statuses: Array.from(statusSelectionCards).filter(c => c.classList.contains('selected') || c.classList.contains('selected-urgent')).map(c => c.dataset.value),
                 specialNotes: specialNotesInput.value,
             };
 
-            // 状態によるorderの調整
+            // 状態による優先度の調整
             if (updatedData.statuses.includes('至急対応') && !originalData.statuses.includes('至急対応')) {
                 updatedData.order = -1;
             } else if (!updatedData.statuses.includes('至急対応') && originalData.statuses.includes('至急対応')) {
@@ -117,7 +118,7 @@ window.addEventListener('DOMContentLoaded', () => {
 
             await patientRef.update(updatedData);
         } else {
-            // ----- 新規登録処理 -----
+            // -------------------- 新規登録処理 --------------------
             const newPatientData = getCurrentFormData();
             await patientsCollection.add(newPatientData);
         }
@@ -125,14 +126,7 @@ window.addEventListener('DOMContentLoaded', () => {
         resetReceptionForm();
     }
 
-
-    /**
-     * =================================================================
-     * ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼【その他の機能と修正】▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
-     * =================================================================
-     */
-
-    // イベントリスナー設定（入力制限など、欠落していた機能をすべて復元）
+    // イベントリスナー設定（全てのリスナーを復元・確認済み）
     function setupEventListeners() {
         const allFocusableElements = Array.from(receptionTab.querySelectorAll('[tabindex]')).filter(el => el.tabIndex > 0).sort((a, b) => a.tabIndex - b.tabIndex);
         
@@ -144,7 +138,6 @@ window.addEventListener('DOMContentLoaded', () => {
             renderAll();
         }); });
         
-        // 【重要】登録ボタンは新しい統合関数を呼び出します
         if (registerBtn) { registerBtn.addEventListener('click', handleRegistrationOrUpdate); }
         
         const setupListEventListeners = (container) => {
@@ -202,10 +195,10 @@ window.addEventListener('DOMContentLoaded', () => {
             card.addEventListener('keydown', (e) => { if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); toggleCardSelection(card); } });
         });
         
-        // 【重要】欠落していた入力制限のイベントリスナーを復元
         if (patientIdInput) { patientIdInput.addEventListener('input', (e) => handlePatientIdInput(e, allFocusableElements)); patientIdInput.addEventListener('blur', handlePatientIdBlur); }
         if (ticketNumberInput) { ticketNumberInput.addEventListener('input', handleNumericInput); ticketNumberInput.addEventListener('keydown', handleTicketNumberEnter); }
         if (specialNotesInput) { specialNotesInput.addEventListener('input', updatePreview); }
+        
         if (receptionQrReaderBtn) { receptionQrReaderBtn.addEventListener('click', () => startCamera('reception')); }
         if (labQrReaderBtn) { labQrReaderBtn.addEventListener('click', () => startCamera('lab')); }
         if (stopCameraBtn) { stopCameraBtn.addEventListener('click', stopCamera); }
@@ -213,6 +206,12 @@ window.addEventListener('DOMContentLoaded', () => {
         if (resetAllBtn) { resetAllBtn.addEventListener('click', () => handleResetAll(false)); }
         if (receptionTab) { receptionTab.addEventListener('keydown', (e) => handleArrowKeyNavigation(e, allFocusableElements)); }
     }
+
+    //
+    // ============================================================================================
+    //            以下の関数群は、これまでの修正内容を維持した安定版です
+    // ============================================================================================
+    //
 
     // カードHTML生成（検査室リストへの離席ボタン追加を反映）
     function renderPatientCardHTML(patientData, viewType) {
@@ -223,7 +222,6 @@ window.addEventListener('DOMContentLoaded', () => {
         if (isUrgent) cardClasses.push('is-urgent');
         if (isAway) cardClasses.push('is-away');
         if (viewType === 'lab' && patientData.isExamining) cardClasses.push('is-examining-in-lab');
-
         const patientIdHtml = `<p class="card-id-line">ID: <strong>${patientData.patientId || 'N/A'}</strong></p>`;
         const ticketNumberHtml = `<p class="card-id-line">番号: <strong class="card-ticket-number">${patientData.ticketNumber || 'N/A'}</strong></p>`;
         let receptionTimeHtml = '';
@@ -234,7 +232,6 @@ window.addEventListener('DOMContentLoaded', () => {
         const labsHtml = patientData.labs && patientData.labs.length > 0 ? `<p>検査: <strong>${patientData.labs.join(', ')}</strong></p>` : '';
         const statusesHtml = patientData.statuses && patientData.statuses.length > 0 ? `<p>状態: <strong>${patientData.statuses.join(', ')}</strong></p>` : '';
         const specialNotesHtml = patientData.specialNotes ? `<p class="special-note-text">特記: ${patientData.specialNotes}</p>` : '';
-        
         let awayHtml = '';
         if (isAway && patientData.awayTime && patientData.awayTime instanceof Date) {
             const awayTimeFormatted = patientData.awayTime.toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' });
@@ -248,10 +245,8 @@ window.addEventListener('DOMContentLoaded', () => {
             }
             inRoomHtml = `<p class="in-room-status"><strong>${patientData.assignedExamRoom}</strong> で検査中${sinceText}</p>`;
         }
-        
         let actionsHtml = '';
         const awayButton = `<button class="btn btn-small away-btn">${isAway ? '戻り' : '離席'}</button>`;
-
         if (viewType === 'reception') {
             actionsHtml = `<div class="card-actions">${awayButton}<button class="btn btn-small edit-btn">編集</button><button class="btn btn-small cancel-btn">受付取消</button></div>`;
         } else if (viewType === 'lab') {
@@ -259,11 +254,10 @@ window.addEventListener('DOMContentLoaded', () => {
             const changeRoomBtnHtml = patientData.isExamining && isGroupRoom ? `<button class="btn btn-small change-room-btn">部屋移動</button>` : '';
             actionsHtml = `<div class="card-actions">${awayButton}${!patientData.isExamining ? '<button class="btn btn-small exam-btn">検査開始</button>' : ''}${patientData.isExamining ? '<button class="btn btn-small finish-exam-btn">検査終了</button>' : ''}${changeRoomBtnHtml}<button class="btn btn-small cancel-btn">受付取消</button></div>`;
         }
-
         const docId = patientData.id ? `data-id="${patientData.id}"` : '';
         return `<div class="${cardClasses.join(' ')}" ${docId} draggable="true"><div class="patient-card-drag-area"><span class="drag-handle">⠿</span><div class="card-up-down"><button class="up-btn" aria-label="上へ移動">▲</button><button class="down-btn" aria-label="下へ移動">▼</button></div></div><div class="patient-card-info">${ticketNumberHtml}${patientIdHtml}${receptionTimeHtml}${labsHtml}${statusesHtml}${awayHtml}${specialNotesHtml}${inRoomHtml}${actionsHtml}</div></div>`;
     }
-
+    
     // データ監視（二重表示対策済み）
     function listenToPatients() {
         patientsCollection.onSnapshot(snapshot => {
@@ -316,9 +310,6 @@ window.addEventListener('DOMContentLoaded', () => {
         else if (activeTabId === 'waiting-tab') renderWaitingDisplay();
     }
     
-    //
-    // 以下のヘルパー関数群は、これまでの修正で安定しているため変更ありません
-    //
     function checkAndResetDailyData() {
         const today = new Date().toISOString().split('T')[0];
         const lastDate = localStorage.getItem(LAST_ACTIVE_DATE_KEY);
