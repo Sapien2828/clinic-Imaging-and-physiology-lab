@@ -28,8 +28,10 @@ window.addEventListener('DOMContentLoaded', () => {
     };
     const waitingRoomOrder = ['レントゲン撮影室(1番)', 'レントゲン撮影室(2番)', '超音波検査室(3番)', '骨密度検査室(4番)', 'CT撮影室(5番)', '透視室(6番)', '聴力検査室(7番)', '呼吸機能検査室(8番)', '血管脈波検査室(9番)', '乳腺撮影室(10番)', '超音波検査室(11番)', '肺機能検査室(12番)', '心電図検査室(13番)', '超音波検査室(14番)', '超音波検査室(15番)'];
     const specialNoteRooms = ['CT撮影室(5番)', '超音波検査室(3番)', '超音波検査室(11番)', '超音波検査室(14番)', '超音波検査室(15番)'];
+    
     let registeredPatients = []; 
-    let editMode = { active: false, patientId: null };
+    // 【重要】混乱を避けるため、FirestoreのドキュメントIDを保持する変数を docId に統一
+    let editMode = { active: false, docId: null }; 
     let html5QrCode = null;
 
     // DOM要素の取得
@@ -62,13 +64,13 @@ window.addEventListener('DOMContentLoaded', () => {
 
     /**
      * =================================================================
-     * 【最終修正】ご指摘の根本原因を修正した、登録・更新の統合関数
+     * 【最終FIX】ご指摘の根本原因を修正した、登録・更新の統合関数
      * =================================================================
      */
     async function handleRegistrationOrUpdate() {
         const newTicketNumber = ticketNumberInput.value;
         const newPatientId = patientIdInput.value; // これは7桁の患者ID
-        const currentDocId = editMode.active ? editMode.patientId : null; // これはFirestoreのドキュメントID
+        const currentDocId = editMode.active ? editMode.docId : null; // これはFirestoreのドキュメントID
 
         if (!newPatientId || newPatientId.length !== 7) {
             alert('患者IDは7桁で入力してください。');
@@ -79,25 +81,16 @@ window.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
-        // Firestore から ticketNumber が重複していないか確認
         const querySnapshot = await patientsCollection.where("ticketNumber", "==", newTicketNumber).get();
-
-        //【デバッグ用ログ】ご提案に基づき、比較対象のIDをコンソールに表示します
-        console.log('--- 更新時のID比較 ---');
-        console.log('現在編集中のFirestore Doc ID:', currentDocId);
-        console.log('DBで見つかった同一番号のDoc IDリスト:', querySnapshot.docs.map(doc => doc.id));
         
         // 自分自身のドキュメントID以外に同じ ticketNumber を使っている人がいたらエラー
         const conflictDoc = querySnapshot.docs.find(doc => doc.id !== currentDocId);
         
         if (conflictDoc) {
-            console.log('重複エラー！競合したDoc ID:', conflictDoc.id);
             alert('エラー: この番号札は他の患者が既に使用しています。');
             return;
         }
         
-        console.log('重複なし。処理を続行します。');
-
         if (editMode.active && currentDocId) {
             // -------------------- 更新処理 --------------------
             const patientRef = patientsCollection.doc(currentDocId);
@@ -117,7 +110,6 @@ window.addEventListener('DOMContentLoaded', () => {
                 specialNotes: specialNotesInput.value,
             };
 
-            // 状態による優先度の調整
             if (updatedData.statuses.includes('至急対応') && !originalData.statuses.includes('至急対応')) {
                 updatedData.order = -1;
             } else if (!updatedData.statuses.includes('至急対応') && originalData.statuses.includes('至急対応')) {
@@ -133,7 +125,32 @@ window.addEventListener('DOMContentLoaded', () => {
 
         resetReceptionForm();
     }
+    
+    //【重要】編集ボタンクリック時に、Firestoreの「ドキュメントID」をeditModeに格納する
+    async function handleEditButtonClick(docId) { // 引数名をdocIdに変更し、何を受け取るか明確化
+        const docRef = patientsCollection.doc(docId);
+        const doc = await docRef.get();
+        if (doc.exists) {
+            const patientToEdit = { id: doc.id, ...doc.data() };
+            tabButtons.forEach(btn => { if (btn.dataset.tab === 'reception-tab') btn.click(); });
+            setTimeout(() => {
+                editMode.active = true;
+                editMode.docId = docId; // ここでFirestoreのドキュメントIDを格納
+                populateForm(patientToEdit);
+                registerBtn.textContent = '更新';
+                registerBtn.classList.remove('btn-success');
+                registerBtn.classList.add('btn-info');
+                patientIdInput.focus();
+                window.scrollTo(0, 0);
+            }, 100);
+        }
+    }
 
+    //
+    // ============================================================================================
+    //            以下の関数群は、全ての機能追加とバグ修正を反映した最終版です
+    // ============================================================================================
+    //
 
     // イベントリスナー設定（全てのリスナーを復元・確認済み）
     function setupEventListeners() {
@@ -156,21 +173,21 @@ window.addEventListener('DOMContentLoaded', () => {
                 if (!target) return;
                 const card = target.closest('.patient-card');
                 if (!card) return;
-                const patientId = card.dataset.id; // ここで取得されるのはFirestoreのDoc ID
-                if (!patientId) return;
+                const docId = card.dataset.id; // ここで取得されるのはFirestoreのDoc ID
+                if (!docId) return;
 
-                if (target.matches('.away-btn')) handleAwayButtonClick(patientId);
-                if (target.matches('.edit-btn')) handleEditButtonClick(patientId);
-                if (target.matches('.up-btn')) handleMove(patientId, 'up');
-                if (target.matches('.down-btn')) handleMove(patientId, 'down');
+                if (target.matches('.away-btn')) handleAwayButtonClick(docId);
+                if (target.matches('.edit-btn')) handleEditButtonClick(docId);
+                if (target.matches('.up-btn')) handleMove(docId, 'up');
+                if (target.matches('.down-btn')) handleMove(docId, 'down');
 
-                if (container.id === 'registered-list-container' && target.matches('.cancel-btn')) handleCancelButtonClick(patientId);
+                if (container.id === 'registered-list-container' && target.matches('.cancel-btn')) handleCancelButtonClick(docId);
                 
                 if (container.id === 'lab-waiting-list-container') {
-                    if (target.matches('.exam-btn')) handleExamButtonClick(patientId);
-                    if (target.matches('.finish-exam-btn')) handleFinishExamButtonClick(patientId);
-                    if (target.matches('.change-room-btn')) handleRoomChangeClick(patientId);
-                    if (target.matches('.cancel-btn')) handleCancelLabReception(patientId);
+                    if (target.matches('.exam-btn')) handleExamButtonClick(docId);
+                    if (target.matches('.finish-exam-btn')) handleFinishExamButtonClick(docId);
+                    if (target.matches('.change-room-btn')) handleRoomChangeClick(docId);
+                    if (target.matches('.cancel-btn')) handleCancelLabReception(docId);
                 }
             });
             let draggedItem = null;
@@ -215,12 +232,6 @@ window.addEventListener('DOMContentLoaded', () => {
         if (resetAllBtn) { resetAllBtn.addEventListener('click', () => handleResetAll(false)); }
         if (receptionTab) { receptionTab.addEventListener('keydown', (e) => handleArrowKeyNavigation(e, allFocusableElements)); }
     }
-    
-    //
-    // ============================================================================================
-    //            以下の関数群は、これまでの修正内容を維持した安定版です
-    // ============================================================================================
-    //
 
     function renderPatientCardHTML(patientData, viewType) {
         if (!patientData) return '';
@@ -262,7 +273,6 @@ window.addEventListener('DOMContentLoaded', () => {
             const changeRoomBtnHtml = patientData.isExamining && isGroupRoom ? `<button class="btn btn-small change-room-btn">部屋移動</button>` : '';
             actionsHtml = `<div class="card-actions">${awayButton}${!patientData.isExamining ? '<button class="btn btn-small exam-btn">検査開始</button>' : ''}${patientData.isExamining ? '<button class="btn btn-small finish-exam-btn">検査終了</button>' : ''}${changeRoomBtnHtml}<button class="btn btn-small cancel-btn">受付取消</button></div>`;
         }
-        // 【重要】ここで patientData.id (FirestoreのDoc ID) を data-id 属性に埋め込む
         const docId = patientData.id ? `data-id="${patientData.id}"` : '';
         return `<div class="${cardClasses.join(' ')}" ${docId} draggable="true"><div class="patient-card-drag-area"><span class="drag-handle">⠿</span><div class="card-up-down"><button class="up-btn" aria-label="上へ移動">▲</button><button class="down-btn" aria-label="下へ移動">▼</button></div></div><div class="patient-card-info">${ticketNumberHtml}${patientIdHtml}${receptionTimeHtml}${labsHtml}${statusesHtml}${awayHtml}${specialNotesHtml}${inRoomHtml}${actionsHtml}</div></div>`;
     }
@@ -354,8 +364,8 @@ window.addEventListener('DOMContentLoaded', () => {
         if (isAutomatic) { confirmReset(); } 
         else { if(confirm('現在の受付情報をすべてリセットしますか？\nこの操作は元に戻せません。')) { confirmReset(); } }
     }
-    function handleExamButtonClick(patientId) {
-        const selectedPatient = registeredPatients.find(p => p.id === patientId);
+    function handleExamButtonClick(docId) {
+        const selectedPatient = registeredPatients.find(p => p.id === docId);
         if (!selectedPatient) return;
         if (selectedPatient.isExamining) { alert(`この患者は、現在「${selectedPatient.assignedExamRoom}」で検査中です。`); return; }
         const groupName = labRoomSelect.value;
@@ -369,8 +379,8 @@ window.addEventListener('DOMContentLoaded', () => {
             });
         } else { setPatientToExamining(selectedPatient, groupName); }
     }
-    async function handleFinishExamButtonClick(patientId) {
-        const patientRef = patientsCollection.doc(patientId);
+    async function handleFinishExamButtonClick(docId) {
+        const patientRef = patientsCollection.doc(docId);
         const doc = await patientRef.get();
         if (!doc.exists) return;
         const selectedPatient = {id: doc.id, ...doc.data()};
@@ -384,8 +394,8 @@ window.addEventListener('DOMContentLoaded', () => {
             showModal('全検査完了', `<p>番号: <strong>${selectedPatient.ticketNumber}</strong> の全検査が完了しました。</p>`, closeModal, false);
         }
     }
-    function handleRoomChangeClick(patientId) {
-        const selectedPatient = registeredPatients.find(p => p.id === patientId);
+    function handleRoomChangeClick(docId) {
+        const selectedPatient = registeredPatients.find(p => p.id === docId);
         if (!selectedPatient || !selectedPatient.isExamining) return;
         const currentAssignedRoom = selectedPatient.assignedExamRoom;
         const groupName = Object.keys(roomConfiguration).find(key => roomConfiguration[key]?.includes(currentAssignedRoom));
@@ -418,25 +428,6 @@ window.addEventListener('DOMContentLoaded', () => {
             await patientsCollection.doc(patient.id).update(updateData);
         }
     }
-    async function handleEditButtonClick(patientId) {
-        const docRef = patientsCollection.doc(patientId);
-        const doc = await docRef.get();
-        if (doc.exists) {
-            const patientToEdit = { id: doc.id, ...doc.data() };
-            tabButtons.forEach(btn => { if (btn.dataset.tab === 'reception-tab') btn.click(); });
-            setTimeout(() => {
-                editMode.active = true;
-                // 【重要】ここで Firestore の Doc ID を格納する
-                editMode.patientId = patientId;
-                populateForm(patientToEdit);
-                registerBtn.textContent = '更新';
-                registerBtn.classList.remove('btn-success');
-                registerBtn.classList.add('btn-info');
-                patientIdInput.focus();
-                window.scrollTo(0, 0);
-            }, 100);
-        }
-    }
     function populateForm(patient) {
         resetReceptionForm(false);
         patientIdInput.value = patient.patientId;
@@ -455,19 +446,19 @@ window.addEventListener('DOMContentLoaded', () => {
         });
         updatePreview();
     }
-    async function handleAwayButtonClick(patientId) {
-        const doc = await patientsCollection.doc(patientId).get();
+    async function handleAwayButtonClick(docId) {
+        const doc = await patientsCollection.doc(docId).get();
         if (!doc.exists) return;
         const isCurrentlyAway = doc.data().isAway;
-        await patientsCollection.doc(patientId).update({ isAway: !isCurrentlyAway, awayTime: !isCurrentlyAway ? new Date() : null });
+        await patientsCollection.doc(docId).update({ isAway: !isCurrentlyAway, awayTime: !isCurrentlyAway ? new Date() : null });
     }
-    async function handleCancelButtonClick(patientId) {
+    async function handleCancelButtonClick(docId) {
         if (confirm('この受付を本当取り消しますか？（すべての検査がキャンセルされます）')) {
-            if (patientId) await patientsCollection.doc(patientId).delete();
+            if (docId) await patientsCollection.doc(docId).delete();
         }
     }
-    async function handleCancelLabReception(patientId) {
-        const patientRef = patientsCollection.doc(patientId);
+    async function handleCancelLabReception(docId) {
+        const patientRef = patientsCollection.doc(docId);
         const doc = await patientRef.get();
         if (!doc.exists) return;
         const patient = doc.data();
@@ -577,8 +568,8 @@ window.addEventListener('DOMContentLoaded', () => {
             cameraContainer.classList.remove('is-visible');
         }
     }
-    async function handleMove(patientId, direction) {
-        const index = registeredPatients.findIndex(p => p.id === patientId);
+    async function handleMove(docId, direction) {
+        const index = registeredPatients.findIndex(p => p.id === docId);
         if (index === -1) return;
         let otherIndex = -1;
         if (direction === 'up' && index > 0) { otherIndex = index - 1; } 
@@ -692,7 +683,7 @@ window.addEventListener('DOMContentLoaded', () => {
         patientIdInput.value = ''; ticketNumberInput.value = ''; specialNotesInput.value = '';
         allReceptionCards.forEach(card => card.classList.remove('selected', 'selected-urgent'));
         if (editMode.active) {
-            editMode = { active: false, patientId: null };
+            editMode = { active: false, docId: null }; // docIdをリセット
             registerBtn.textContent = '受付登録';
             registerBtn.classList.remove('btn-info');
             registerBtn.classList.add('btn-success');
