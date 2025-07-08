@@ -566,25 +566,33 @@ window.addEventListener('DOMContentLoaded', () => {
     function startCamera(context) {
         if (!cameraContainer || !qrReaderDiv) return;
         qrScanContext = context;
+
+        // 先にカメラの表示エリアを画面に表示する
+        cameraContainer.classList.add('is-visible');
+
+        // 表示された後で、QRリーダーの初期化を行う
         if (!html5QrCode) {
             try {
                 html5QrCode = new Html5Qrcode("qr-reader");
             } catch (e) {
                 console.error("Html5Qrcodeの初期化に失敗しました。", e);
                 alert("QRコードリーダーの初期化に失敗しました。ページを再読み込みしてください。");
+                // 失敗した場合は表示エリアを隠す
+                cameraContainer.classList.remove('is-visible');
                 return;
             }
         }
-        cameraContainer.classList.add('is-visible');
+
         const config = { fps: 10, qrbox: { width: 250, height: 250 } };
 
+        // カメラを起動する
         html5QrCode.start({ facingMode: "environment" }, config, onQrSuccess, onQrFailure)
             .catch(err => {
                 console.warn("背面カメラの起動に失敗:", err, "前面カメラで再試行します。");
                 html5QrCode.start({ facingMode: "user" }, config, onQrSuccess, onQrFailure)
                     .catch(err2 => {
                         console.error("QRカメラの起動に失敗しました:", err2);
-                        alert("カメラの起動に失敗しました。ブラウザのカメラアクセス許可を確認してください。\nHTTPS接続が必要な場合があります。");
+                        alert("カメラの起動に失敗しました。ブラウザのカメラアクセス許可を確認してください。");
                         stopCamera();
                     });
             });
