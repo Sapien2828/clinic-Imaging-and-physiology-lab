@@ -1,4 +1,3 @@
-// admin.js (最終完成版)
 window.addEventListener('DOMContentLoaded', () => {
 
     if (!document.querySelector('.admin-container')) {
@@ -562,18 +561,20 @@ window.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
+        qrScanContext = context;
+        cameraContainer.classList.add('is-visible');
+        
         const qrReaderElement = document.getElementById('qr-reader');
         if (!qrReaderElement) {
             alert("QRリーダーの描画エリア(#qr-reader)が見つかりません。");
+            cameraContainer.classList.remove('is-visible');
             return;
         }
 
-        qrScanContext = context;
-        cameraContainer.classList.add('is-visible');
-
+        // 毎回新しいインスタンスを生成するのではなく、既存のインスタンスがあればそれを使う
         if (!html5QrCode) {
             try {
-                html5QrCode = new Html5Qrcode("qr-reader");
+                html5QrCode = new Html5Qrcode("qr-reader", /* verbose= */ false);
             } catch (e) {
                 console.error("Html5Qrcodeの初期化に失敗しました。", e);
                 alert("QRコードリーダーの初期化に失敗しました。ページを再読み込みしてください。");
@@ -597,6 +598,7 @@ window.addEventListener('DOMContentLoaded', () => {
     }
 
     function onQrSuccess(decodedText, decodedResult) {
+        // 成功したら確実に停止する
         stopCamera();
         const validQrPattern = /^[0-9]{1,4}$/; 
         if (validQrPattern.test(decodedText)) {
@@ -628,15 +630,23 @@ window.addEventListener('DOMContentLoaded', () => {
 
     function onQrFailure(error) { /* 読み取り中のエラーはコンソールに表示しない */ }
 
+    // ★★★ 修正の中心：stopCamera関数を改善 ★★★
     function stopCamera() {
         if (html5QrCode && html5QrCode.isScanning) {
-            html5QrCode.stop().then(() => {
-                cameraContainer.classList.remove('is-visible');
-            }).catch(err => {
-                console.error("カメラの停止に失敗しました。", err);
-                if (cameraContainer) cameraContainer.classList.remove('is-visible');
-            });
+            html5QrCode.stop()
+                .then(() => {
+                    cameraContainer.classList.remove('is-visible');
+                    // 完全にリセットするため、インスタンスを破棄する
+                    html5QrCode = null;
+                })
+                .catch(err => {
+                    console.error("カメラの停止に失敗しました。", err);
+                    cameraContainer.classList.remove('is-visible');
+                    // エラーが発生しても、インスタンスを強制的に破棄する
+                    html5QrCode = null;
+                });
         } else if (cameraContainer) {
+            // スキャン中でない場合でも、コンテナを隠す
             cameraContainer.classList.remove('is-visible');
         }
     }
@@ -736,8 +746,7 @@ window.addEventListener('DOMContentLoaded', () => {
     }
 
     function resetReceptionForm(shouldFocus = true) {
-        if (!patientIdInput) return;
-        patientIdInput.value = ''; 
+        if(patientIdInput) patientIdInput.value = ''; 
         if(ticketNumberInput) ticketNumberInput.value = ''; 
         if(specialNotesInput) specialNotesInput.value = '';
         allReceptionCards.forEach(card => card.classList.remove('selected', 'selected-urgent'));
