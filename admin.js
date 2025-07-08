@@ -1,3 +1,4 @@
+// admin.js (最終完成版)
 window.addEventListener('DOMContentLoaded', () => {
 
     if (!document.querySelector('.admin-container')) {
@@ -555,50 +556,49 @@ window.addEventListener('DOMContentLoaded', () => {
         });
     }
     
+    // ★★★★★ カメラ起動の最終修正版 ★★★★★
     function startCamera(context) {
-        if (!cameraContainer) {
-            alert("カメラ表示エリア(#camera-container)が見つかりません。");
+        // 既にスキャン中の場合は何もしない
+        if (html5QrCode && html5QrCode.isScanning) {
+            console.warn("スキャンはすでに実行中です。");
             return;
         }
 
         qrScanContext = context;
         cameraContainer.classList.add('is-visible');
-        
-        const qrReaderElement = document.getElementById('qr-reader');
-        if (!qrReaderElement) {
-            alert("QRリーダーの描画エリア(#qr-reader)が見つかりません。");
-            cameraContainer.classList.remove('is-visible');
-            return;
-        }
 
-        // 毎回新しいインスタンスを生成するのではなく、既存のインスタンスがあればそれを使う
-        if (!html5QrCode) {
-            try {
-                html5QrCode = new Html5Qrcode("qr-reader", /* verbose= */ false);
-            } catch (e) {
-                console.error("Html5Qrcodeの初期化に失敗しました。", e);
-                alert("QRコードリーダーの初期化に失敗しました。ページを再読み込みしてください。");
-                cameraContainer.classList.remove('is-visible');
-                return;
-            }
-        }
-
-        const config = { fps: 10, qrbox: { width: 250, height: 250 } };
-
-        html5QrCode.start({ facingMode: "environment" }, config, onQrSuccess, onQrFailure)
-            .catch(err => {
-                console.warn("背面カメラの起動に失敗:", err, "前面カメラで再試行します。");
-                html5QrCode.start({ facingMode: "user" }, config, onQrSuccess, onQrFailure)
-                    .catch(err2 => {
-                        console.error("QRカメラの起動に失敗しました:", err2);
-                        alert("カメラの起動に失敗しました。ブラウザのカメラアクセス許可を確認してください。");
+        // デバイスのカメラへのアクセス許可を取得し、利用可能なカメラをリストアップする
+        Html5Qrcode.getCameras().then(cameras => {
+            if (cameras && cameras.length) {
+                // インスタンスがなければ生成
+                if (!html5QrCode) {
+                    html5QrCode = new Html5Qrcode("qr-reader", /* verbose= */ false);
+                }
+                
+                // カメラリストの最初のカメラを使用する（多くの場合、これがメインの背面カメラ）
+                const cameraId = cameras[0].id;
+                const config = { fps: 10, qrbox: { width: 250, height: 250 } };
+                
+                html5QrCode.start(cameraId, config, onQrSuccess, onQrFailure)
+                    .catch(err => {
+                        console.error("指定されたカメラでの起動に失敗:", err);
+                        alert("カメラの起動に失敗しました。");
                         stopCamera();
                     });
-            });
+
+            } else {
+                console.error("利用可能なカメラが見つかりません。");
+                alert("利用可能なカメラが見つかりません。");
+                cameraContainer.classList.remove('is-visible');
+            }
+        }).catch(err => {
+            console.error("カメラのアクセス許可取得に失敗:", err);
+            alert("カメラへのアクセス許可が必要です。ブラウザの設定を確認してください。");
+            cameraContainer.classList.remove('is-visible');
+        });
     }
 
     function onQrSuccess(decodedText, decodedResult) {
-        // 成功したら確実に停止する
         stopCamera();
         const validQrPattern = /^[0-9]{1,4}$/; 
         if (validQrPattern.test(decodedText)) {
@@ -635,18 +635,17 @@ window.addEventListener('DOMContentLoaded', () => {
         if (html5QrCode && html5QrCode.isScanning) {
             html5QrCode.stop()
                 .then(() => {
-                    cameraContainer.classList.remove('is-visible');
                     // 完全にリセットするため、インスタンスを破棄する
                     html5QrCode = null;
                 })
                 .catch(err => {
                     console.error("カメラの停止に失敗しました。", err);
-                    cameraContainer.classList.remove('is-visible');
                     // エラーが発生しても、インスタンスを強制的に破棄する
                     html5QrCode = null;
                 });
-        } else if (cameraContainer) {
-            // スキャン中でない場合でも、コンテナを隠す
+        }
+        // 状態に関わらずコンテナを隠す
+        if (cameraContainer) {
             cameraContainer.classList.remove('is-visible');
         }
     }
