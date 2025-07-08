@@ -1,11 +1,9 @@
+// admin.js (最終完成版)
 window.addEventListener('DOMContentLoaded', () => {
 
     if (!document.querySelector('.admin-container')) {
         return;
     }
-
-    // ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
-    // 【重要】あなた自身のFirebase設定をここに貼り付けてください
     
   const firebaseConfig = {
 
@@ -22,7 +20,6 @@ window.addEventListener('DOMContentLoaded', () => {
   appId: "1:568457688933:web:2eee210553b939cf39538c"
 
     };
-    // ▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲
 
     firebase.initializeApp(firebaseConfig);
     const db = firebase.firestore();
@@ -43,7 +40,6 @@ window.addEventListener('DOMContentLoaded', () => {
     let qrScanContext = null;
     let html5QrCode = null;
 
-    // DOM要素の取得は、グローバルスコープで一度だけ行う
     const allTabs = document.querySelectorAll('.tab-content');
     const tabButtons = document.querySelectorAll('.tab-button');
     const receptionTab = document.getElementById('reception-tab');
@@ -102,14 +98,13 @@ window.addEventListener('DOMContentLoaded', () => {
         patientsCollection.orderBy("order").onSnapshot(snapshot => {
             registeredPatients = snapshot.docs.map(doc => {
                 const data = doc.data();
-                const patient = {
+                return {
                     id: doc.id,
                     ...data,
                     receptionTime: data.receptionTime?.toDate(),
                     awayTime: data.awayTime ? data.awayTime.toDate() : null,
                     inRoomSince: data.inRoomSince ? data.inRoomSince.toDate() : null,
                 };
-                return patient;
             });
             renderAll();
         }, error => {
@@ -178,7 +173,7 @@ window.addEventListener('DOMContentLoaded', () => {
             card.addEventListener('click', () => toggleCardSelection(card));
             card.addEventListener('keydown', (e) => { if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); toggleCardSelection(card); } });
         });
-        if (patientIdInput) { patientIdInput.addEventListener('input', (e) => handlePatientIdInput(e)); patientIdInput.addEventListener('blur', handlePatientIdBlur); }
+        if (patientIdInput) { patientIdInput.addEventListener('input', handlePatientIdInput); patientIdInput.addEventListener('blur', handlePatientIdBlur); }
         if (ticketNumberInput) { ticketNumberInput.addEventListener('input', handleNumericInput); ticketNumberInput.addEventListener('keydown', handleTicketNumberEnter); }
         if (specialNotesInput) { specialNotesInput.addEventListener('input', updatePreview); }
         if (receptionQrReaderBtn) { receptionQrReaderBtn.addEventListener('click', () => startCamera('reception')); }
@@ -375,7 +370,7 @@ window.addEventListener('DOMContentLoaded', () => {
                 registerBtn.textContent = '更新';
                 registerBtn.classList.remove('btn-success');
                 registerBtn.classList.add('btn-info');
-                patientIdInput.focus();
+                if (patientIdInput) patientIdInput.focus();
                 window.scrollTo(0, 0);
             }, 100);
         }
@@ -383,9 +378,9 @@ window.addEventListener('DOMContentLoaded', () => {
         
     function populateForm(patient) {
         resetReceptionForm(false);
-        patientIdInput.value = patient.patientId;
-        ticketNumberInput.value = patient.ticketNumber;
-        specialNotesInput.value = patient.specialNotes;
+        if(patientIdInput) patientIdInput.value = patient.patientId;
+        if(ticketNumberInput) ticketNumberInput.value = patient.ticketNumber;
+        if(specialNotesInput) specialNotesInput.value = patient.specialNotes;
         allReceptionCards.forEach(card => {
             const cardValue = card.dataset.value;
             if (patient.labs.includes(cardValue) || patient.statuses.includes(cardValue)) {
@@ -561,23 +556,20 @@ window.addEventListener('DOMContentLoaded', () => {
         });
     }
     
-    // ★★★★★ カメラ起動の最終修正版 ★★★★★
     function startCamera(context) {
         if (!cameraContainer) {
-            alert("カメラ表示エリアが見つかりません。");
+            alert("カメラ表示エリア(#camera-container)が見つかりません。");
+            return;
+        }
+
+        const qrReaderElement = document.getElementById('qr-reader');
+        if (!qrReaderElement) {
+            alert("QRリーダーの描画エリア(#qr-reader)が見つかりません。");
             return;
         }
 
         qrScanContext = context;
         cameraContainer.classList.add('is-visible');
-
-        // この要素が確実に見つかるように、ここで再度取得する
-        const qrReaderElement = document.getElementById('qr-reader');
-        if (!qrReaderElement) {
-            alert("QRリーダーの描画エリアが見つかりません。");
-            cameraContainer.classList.remove('is-visible');
-            return;
-        }
 
         if (!html5QrCode) {
             try {
@@ -642,7 +634,7 @@ window.addEventListener('DOMContentLoaded', () => {
                 cameraContainer.classList.remove('is-visible');
             }).catch(err => {
                 console.error("カメラの停止に失敗しました。", err);
-                cameraContainer.classList.remove('is-visible');
+                if (cameraContainer) cameraContainer.classList.remove('is-visible');
             });
         } else if (cameraContainer) {
             cameraContainer.classList.remove('is-visible');
@@ -708,25 +700,6 @@ window.addEventListener('DOMContentLoaded', () => {
     }
 
     function handleTicketNumberEnter(event) { if (event.key === 'Enter') { event.preventDefault(); registerBtn.click(); } }
-        
-    function handleArrowKeyNavigation(e) {
-        if (!receptionTab.contains(document.activeElement)) return;
-        if (!['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) return;
-        
-        const focusable = Array.from(receptionTab.querySelectorAll('[tabindex]')).filter(el => el.tabIndex > 0).sort((a,b) => a.tabIndex - b.tabIndex);
-        const currentIndex = focusable.indexOf(document.activeElement);
-        if (currentIndex === -1) return;
-        
-        e.preventDefault();
-
-        let nextIndex = currentIndex;
-        if (e.key === 'ArrowDown' || e.key === 'ArrowRight') {
-            nextIndex = (currentIndex + 1) % focusable.length;
-        } else if (e.key === 'ArrowUp' || e.key === 'ArrowLeft') {
-            nextIndex = (currentIndex - 1 + focusable.length) % focusable.length;
-        }
-        focusable[nextIndex].focus();
-    }
 
     function getCurrentFormData() {
         const statuses = Array.from(statusSelectionCards).filter(c => c.classList.contains('selected') || c.classList.contains('selected-urgent')).map(c => c.dataset.value);
@@ -764,7 +737,9 @@ window.addEventListener('DOMContentLoaded', () => {
 
     function resetReceptionForm(shouldFocus = true) {
         if (!patientIdInput) return;
-        patientIdInput.value = ''; ticketNumberInput.value = ''; specialNotesInput.value = '';
+        patientIdInput.value = ''; 
+        if(ticketNumberInput) ticketNumberInput.value = ''; 
+        if(specialNotesInput) specialNotesInput.value = '';
         allReceptionCards.forEach(card => card.classList.remove('selected', 'selected-urgent'));
         if (editMode.active) {
             editMode = { active: false, patientId: null };
