@@ -573,13 +573,10 @@ window.addEventListener('DOMContentLoaded', () => {
         // 表示された後で、QRリーダーの初期化を行う
         if (!html5QrCode) {
             try {
-           try {
                 html5QrCode = new Html5Qrcode("qr-reader");
             } catch (e) {
                 console.error("Html5Qrcodeの初期化に失敗しました。", e);
-                // ★★★ 具体的なエラーメッセージをアラートで表示するよう変更 ★★★
-                alert("QRリーダーの初期化に失敗しました。\n\n【エラー内容】\n" + e.message);
-                
+                alert("QRコードリーダーの初期化に失敗しました。ページを再読み込みしてください。");
                 // 失敗した場合は表示エリアを隠す
                 cameraContainer.classList.remove('is-visible');
                 return;
