@@ -1,19 +1,13 @@
 window.addEventListener('DOMContentLoaded', () => {
     // ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
     // 【重要】あなた自身のFirebase設定をここに貼り付けてください
-const firebaseConfig = {
-
-  apiKey: "AIzaSyCsk7SQQY58yKIn-q4ps1gZ2BRbc2k6flE",
-
-  authDomain: "clinic-imaging-and-physiology.firebaseapp.com",
-
-  projectId: "clinic-imaging-and-physiology",
-
-  storageBucket: "clinic-imaging-and-physiology.firebasestorage.app",
-
-  messagingSenderId: "568457688933",
-
-  appId: "1:568457688933:web:2eee210553b939cf39538c"
+    const firebaseConfig = {
+        apiKey: "AIzaSyCsk7SQQY58yKIn-q4ps1gZ2BRbc2k6flE",
+        authDomain: "clinic-imaging-and-physiology.firebaseapp.com",
+        projectId: "clinic-imaging-and-physiology",
+        storageBucket: "clinic-imaging-and-physiology.firebasestorage.app",
+        messagingSenderId: "568457688933",
+        appId: "1:568457688933:web:2eee210553b939cf39538c" // ← 末尾の余分な「"」を削除
     };
     // ▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲
 
@@ -41,24 +35,63 @@ const firebaseConfig = {
         });
         waitingDisplayGrid.innerHTML = '';
         const specialNoteText = '案内票に記載された予約時間を基準にご案内します。必ずしも受付番号順ではありません。また、検査の依頼内容に応じて順番が前後することがあります。あらかじめご了承証ください。';
+        
+        const groupedRooms = {};
         waitingRoomOrder.forEach(roomName => {
-            const nowServingPatient = registeredPatients.find(p => p.isExamining && p.assignedExamRoom === roomName);
-            const nowServingNumber = nowServingPatient ? nowServingPatient.ticketNumber : '-';
             const groupName = Object.keys(roomConfiguration).find(key => roomConfiguration[key]?.includes(roomName)) || roomName;
-            const waitingPatientsForGroup = registeredPatients.filter(p => p.labs.includes(groupName) && !p.isExamining);
+            if (!groupedRooms[groupName]) {
+                groupedRooms[groupName] = {
+                    displayRoomName: groupName,
+                    componentRooms: [roomName],
+                    isSpecialNote: specialNoteRooms.includes(roomName),
+                };
+            } else if (!groupedRooms[groupName].componentRooms.includes(roomName)) {
+                groupedRooms[groupName].componentRooms.push(roomName);
+                 if (specialNoteRooms.includes(roomName)) {
+                    groupedRooms[groupName].isSpecialNote = true;
+                }
+            }
+        });
+
+        Object.values(groupedRooms).forEach(group => {
+            const nowServingPatients = registeredPatients.filter(p => p.isExamining && group.componentRooms.includes(p.assignedExamRoom));
+            const nowServingNumbers = nowServingPatients.map(p => p.ticketNumber).join(', ') || '-';
+
+            const waitingPatientsForGroup = registeredPatients.filter(p => p.labs.includes(group.displayRoomName) && !p.isExamining);
             const nextNumbers = waitingPatientsForGroup.slice(0, 10).map(p => `<span>${p.ticketNumber}</span>`).join('') || '-';
-            const patientsForThisGroup = registeredPatients.filter(p => p.labs.includes(groupName));
-            const waitCount = patientsForThisGroup.length;
+            
+            const patientsForThisGroup = registeredPatients.filter(p => p.labs.includes(group.displayRoomName));
+            const waitCount = waitingPatientsForGroup.length;
+            
             let waitTime = 0;
             if (waitCount > 0) {
-                const earliestPatient = patientsForThisGroup.reduce((earliest, current) => new Date(earliest.receptionTime) < new Date(current.receptionTime) ? earliest : current);
+                const earliestPatient = waitingPatientsForGroup.reduce((earliest, current) => 
+                    new Date(earliest.receptionTime) < new Date(current.receptionTime) ? earliest : current
+                );
                 waitTime = Math.round((new Date() - new Date(earliestPatient.receptionTime)) / (1000 * 60));
             }
-            const roomNameShort = groupName.split('(')[0];
-            let noteHtml = specialNoteRooms.includes(roomName) ? `<p class="room-note">${specialNoteText}</p>` : '';
-            const cardHtml = `<div class="waiting-room-card" data-room-name="${roomName}"><h3 class="waiting-room-name">${roomName}</h3><div class="waiting-info"><p>待ち: <span class="wait-count">${waitCount}</span>人 / 推定: <span class="wait-time">約${waitTime}</span>分</p></div><div class="now-serving"><h4>検査中</h4><p class="now-serving-number">${nowServingNumber}</p></div><div class="next-in-line"><h4>${roomNameShort}の次の方</h4><p class="next-numbers">${nextNumbers}</p></div>${noteHtml}</div>`;
+            
+            const roomNameShort = group.displayRoomName.split('(')[0];
+            const noteHtml = group.isSpecialNote ? `<p class="room-note">${specialNoteText}</p>` : '';
+            
+            const cardHtml = `<div class="waiting-room-card" data-room-name="${group.displayRoomName}">
+                <h3 class="waiting-room-name">${group.displayRoomName}</h3>
+                <div class="waiting-info">
+                    <p>待ち: <span class="wait-count">${waitCount}</span>人 / 推定: <span class="wait-time">約${waitTime}</span>分</p>
+                </div>
+                <div class="now-serving">
+                    <h4>検査中</h4>
+                    <p class="now-serving-number">${nowServingNumbers}</p>
+                </div>
+                <div class="next-in-line">
+                    <h4>${roomNameShort}の次の方</h4>
+                    <p class="next-numbers">${nextNumbers}</p>
+                </div>
+                ${noteHtml}
+            </div>`;
             waitingDisplayGrid.insertAdjacentHTML('beforeend', cardHtml);
         });
+
         waitingDisplayGrid.querySelectorAll('.waiting-room-card').forEach(card => {
             const roomName = card.dataset.roomName;
             const oldNumber = beforeState.get(roomName);
@@ -77,7 +110,7 @@ const firebaseConfig = {
                 return {
                     id: doc.id,
                     ...data,
-                    receptionTime: data.receptionTime.toDate(),
+                    receptionTime: data.receptionTime ? data.receptionTime.toDate() : new Date(),
                     awayTime: data.awayTime ? data.awayTime.toDate() : null,
                     inRoomSince: data.inRoomSince ? data.inRoomSince.toDate() : null,
                 };
@@ -86,7 +119,7 @@ const firebaseConfig = {
         }, error => {
             console.error("Firestoreからのデータ取得に失敗しました:", error);
         });
-        setInterval(renderWaitingDisplay, 15000);
+        setInterval(renderWaitingDisplay, 60000); // 待合表示は更新頻度を少し落としても良い
     }
 
     initialize();

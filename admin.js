@@ -7,7 +7,7 @@ window.addEventListener('DOMContentLoaded', () => {
     // ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
     // 【重要】あなた自身のFirebase設定をここに貼り付けてください
     
-const firebaseConfig = {
+  const firebaseConfig = {
 
   apiKey: "AIzaSyCsk7SQQY58yKIn-q4ps1gZ2BRbc2k6flE",
 
@@ -20,7 +20,9 @@ const firebaseConfig = {
   messagingSenderId: "568457688933",
 
   appId: "1:568457688933:web:2eee210553b939cf39538c"
-    };▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲
+
+    };
+    // ▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲
 
     firebase.initializeApp(firebaseConfig);
     const db = firebase.firestore();
@@ -163,7 +165,11 @@ const firebaseConfig = {
                     const patientRef = patientsCollection.doc(id);
                     batch.update(patientRef, { order: index });
                 });
-                await batch.commit();
+                try {
+                    await batch.commit();
+                } catch (error) {
+                    console.error("ドラッグ＆ドロップによる順序更新に失敗: ", error);
+                }
             });
         };
         setupListEventListeners(registeredListContainer);
@@ -198,11 +204,16 @@ const firebaseConfig = {
     
     async function handleResetAll(isAutomatic = false) {
         const confirmReset = async () => {
-            const snapshot = await patientsCollection.get();
-            if(snapshot.empty) return;
-            const batch = db.batch();
-            snapshot.docs.forEach(doc => { batch.delete(doc.ref); });
-            await batch.commit();
+            try {
+                const snapshot = await patientsCollection.get();
+                if(snapshot.empty) return;
+                const batch = db.batch();
+                snapshot.docs.forEach(doc => { batch.delete(doc.ref); });
+                await batch.commit();
+            } catch (error) {
+                console.error("一斉リセットに失敗しました: ", error);
+                if (!isAutomatic) alert("リセットに失敗しました。");
+            }
         };
         if (isAutomatic) { confirmReset(); } 
         else { if(confirm('現在の受付情報をすべてリセットしますか？\nこの操作は元に戻せません。')) { confirmReset(); } }
@@ -230,24 +241,29 @@ const firebaseConfig = {
     }
     
     async function handleFinishExamButtonClick(patientId) {
-        const patientRef = patientsCollection.doc(patientId);
-        const doc = await patientRef.get();
-        if (!doc.exists) return;
-        const selectedPatient = {id: doc.id, ...doc.data()};
-        const finishedRoom = selectedPatient.assignedExamRoom;
-        const finishedGroup = Object.keys(roomConfiguration).find(key => roomConfiguration[key]?.includes(finishedRoom)) || finishedRoom;
-        const remainingLabs = selectedPatient.labs.filter(lab => lab !== finishedGroup);
-        await patientRef.update({
-            isExamining: false,
-            assignedExamRoom: null,
-            inRoomSince: null,
-            labs: remainingLabs
-        });
-        if (remainingLabs.length > 0) {
-            const bodyHtml = `<p><strong>${finishedRoom}</strong> での検査は終了しました。</p><p>この患者にはまだ次の検査が残っています:<br><strong>${remainingLabs.join(', ')}</strong></p>`;
-            showModal('次の検査があります', bodyHtml, closeModal, false);
-        } else {
-            showModal('全検査完了', `<p>番号: <strong>${selectedPatient.ticketNumber}</strong> の全検査が完了しました。</p>`, closeModal, false);
+        try {
+            const patientRef = patientsCollection.doc(patientId);
+            const doc = await patientRef.get();
+            if (!doc.exists) return;
+            const selectedPatient = {id: doc.id, ...doc.data()};
+            const finishedRoom = selectedPatient.assignedExamRoom;
+            const finishedGroup = Object.keys(roomConfiguration).find(key => roomConfiguration[key]?.includes(finishedRoom)) || finishedRoom;
+            const remainingLabs = selectedPatient.labs.filter(lab => lab !== finishedGroup);
+            await patientRef.update({
+                isExamining: false,
+                assignedExamRoom: null,
+                inRoomSince: null,
+                labs: remainingLabs
+            });
+            if (remainingLabs.length > 0) {
+                const bodyHtml = `<p><strong>${finishedRoom}</strong> での検査は終了しました。</p><p>この患者にはまだ次の検査が残っています:<br><strong>${remainingLabs.join(', ')}</strong></p>`;
+                showModal('次の検査があります', bodyHtml, closeModal, false);
+            } else {
+                showModal('全検査完了', `<p>番号: <strong>${selectedPatient.ticketNumber}</strong> の全検査が完了しました。</p>`, closeModal, false);
+            }
+        } catch (error) {
+            console.error("検査終了処理に失敗: ", error);
+            alert("検査終了処理に失敗しました。");
         }
     }
 
@@ -268,22 +284,24 @@ const firebaseConfig = {
     }
 
     async function setPatientToExamining(patient, specificRoom) {
-        const querySnapshot = await patientsCollection.where("isExamining", "==", true).where("assignedExamRoom", "==", specificRoom).get();
-        let proceed = true;
-        if (!querySnapshot.empty) {
-            const existingDoc = querySnapshot.docs[0];
-            if (existingDoc.id !== patient.id) {
-                if (confirm(`「${specificRoom}」では、番号札 ${existingDoc.data().ticketNumber} の方が検査中です。\nこの検査を中断して、番号札 ${patient.ticketNumber} の方の検査を開始しますか？`)) {
-                    await patientsCollection.doc(existingDoc.id).update({ isExamining: false, inRoomSince: null });
-                } else { proceed = false; }
+        try {
+            const querySnapshot = await patientsCollection.where("isExamining", "==", true).where("assignedExamRoom", "==", specificRoom).get();
+            let proceed = true;
+            if (!querySnapshot.empty) {
+                const existingDoc = querySnapshot.docs[0];
+                if (existingDoc.id !== patient.id) {
+                    if (confirm(`「${specificRoom}」では、番号札 ${existingDoc.data().ticketNumber} の方が検査中です。\nこの検査を中断して、番号札 ${patient.ticketNumber} の方の検査を開始しますか？`)) {
+                        await patientsCollection.doc(existingDoc.id).update({ isExamining: false, inRoomSince: null, assignedExamRoom: null });
+                    } else { proceed = false; }
+                }
             }
-        }
-        if (proceed) {
-            const updateData = { isExamining: true, assignedExamRoom: specificRoom, inRoomSince: new Date() };
-            if (patient.isExamining && patient.assignedExamRoom && patient.assignedExamRoom !== specificRoom) {
-                await patientsCollection.doc(patient.id).update({isExamining: false, inRoomSince: null});
+            if (proceed) {
+                const updateData = { isExamining: true, assignedExamRoom: specificRoom, inRoomSince: new Date() };
+                await patientsCollection.doc(patient.id).update(updateData);
             }
-            await patientsCollection.doc(patient.id).update(updateData);
+        } catch (error) {
+            console.error("検査開始処理に失敗: ", error);
+            alert("検査開始処理に失敗しました。");
         }
     }
     
@@ -291,10 +309,16 @@ const firebaseConfig = {
         const newPatientData = getCurrentFormData();
         if (!newPatientData.patientId || !newPatientData.ticketNumber) { alert('患者IDと番号札は必須です。'); return; }
         if (newPatientData.labs.length === 0) { alert('検査室を一つ以上選択してください。'); return; }
-        const querySnapshot = await patientsCollection.where("ticketNumber", "==", newPatientData.ticketNumber).get();
-        if (!querySnapshot.empty) { alert('エラー: この番号札は既に使用されています。'); return; }
-        await patientsCollection.add(newPatientData);
-        resetReceptionForm();
+        
+        try {
+            const querySnapshot = await patientsCollection.where("ticketNumber", "==", newPatientData.ticketNumber).get();
+            if (!querySnapshot.empty) { alert('エラー: この番号札は既に使用されています。'); return; }
+            await patientsCollection.add(newPatientData);
+            resetReceptionForm();
+        } catch (error) {
+            console.error("受付登録に失敗: ", error);
+            alert("受付登録に失敗しました。");
+        }
     }
 
     async function handleUpdate() {
@@ -303,44 +327,48 @@ const firebaseConfig = {
         const newPatientId = patientIdInput.value.trim();
         if (!newPatientId || !newTicketNumber) { alert('患者IDと番号札は必須です。'); return; }
         
-        const querySnapshot = await patientsCollection.where("ticketNumber", "==", newTicketNumber).get();
-        const conflictingDoc = querySnapshot.docs.find(doc => doc.id !== editMode.patientId);
-        if (conflictingDoc) { alert('エラー: この番号札は他の患者が使用しています。'); return; }
-        
-        const patientRef = patientsCollection.doc(editMode.patientId);
-        const doc = await patientRef.get();
-        if (!doc.exists) { resetReceptionForm(); return; }
-        const existingData = doc.data();
-        
-        const updatedData = {
-            patientId: newPatientId,
-            ticketNumber: newTicketNumber,
-            labs: Array.from(labSelectionCards).filter(c => c.classList.contains('selected')).map(c => c.dataset.value),
-            statuses: Array.from(statusSelectionCards).filter(c => c.classList.contains('selected') || c.classList.contains('selected-urgent')).map(c => c.dataset.value),
-            specialNotes: specialNotesInput.value,
-        };
-        
-        let order = existingData.order;
-        const isNowUrgent = updatedData.statuses.includes('至急対応');
-        const wasUrgent = existingData.statuses.includes('至急対応');
+        try {
+            const querySnapshot = await patientsCollection.where("ticketNumber", "==", newTicketNumber).get();
+            const conflictingDoc = querySnapshot.docs.find(doc => doc.id !== editMode.patientId);
+            if (conflictingDoc) { alert('エラー: この番号札は他の患者が使用しています。'); return; }
+            
+            const patientRef = patientsCollection.doc(editMode.patientId);
+            const doc = await patientRef.get();
+            if (!doc.exists) { resetReceptionForm(); return; }
+            const existingData = doc.data();
+            
+            const updatedData = {
+                patientId: newPatientId,
+                ticketNumber: newTicketNumber,
+                labs: Array.from(labSelectionCards).filter(c => c.classList.contains('selected')).map(c => c.dataset.value),
+                statuses: Array.from(statusSelectionCards).filter(c => c.classList.contains('selected') || c.classList.contains('selected-urgent')).map(c => c.dataset.value),
+                specialNotes: specialNotesInput.value,
+            };
+            
+            let order = existingData.order;
+            const isNowUrgent = updatedData.statuses.includes('至急対応');
+            const wasUrgent = existingData.statuses.includes('至急対応');
 
-        if (isNowUrgent && !wasUrgent) {
-            const minOrder = registeredPatients.length > 0 ? Math.min(...registeredPatients.map(p => p.order)) : 0;
-            order = minOrder - 1;
-        } else if (!isNowUrgent && wasUrgent) {
-            order = Date.now();
+            if (isNowUrgent && !wasUrgent) {
+                const urgentOrders = registeredPatients.filter(p => p.statuses.includes('至急対応')).map(p => p.order);
+                const minOrder = urgentOrders.length > 0 ? Math.min(...urgentOrders) : (registeredPatients[0]?.order || 0);
+                order = minOrder - 1;
+            } else if (!isNowUrgent && wasUrgent) {
+                order = Date.now();
+            }
+            updatedData.order = order;
+            
+            await patientRef.update(updatedData);
+            resetReceptionForm();
+        } catch (error) {
+            console.error("更新処理に失敗: ", error);
+            alert("更新処理に失敗しました。");
         }
-        updatedData.order = order;
-        
-        await patientRef.update(updatedData);
-        resetReceptionForm();
     }
     
     async function handleEditButtonClick(patientId) {
-        const docRef = patientsCollection.doc(patientId);
-        const doc = await docRef.get();
-        if (doc.exists) {
-            const patientToEdit = { id: doc.id, ...doc.data() };
+        const patientToEdit = registeredPatients.find(p => p.id === patientId);
+        if (patientToEdit) {
             tabButtons.forEach(btn => { if (btn.dataset.tab === 'reception-tab') btn.click(); });
             setTimeout(() => {
                 editMode.active = true;
@@ -362,11 +390,7 @@ const firebaseConfig = {
         specialNotesInput.value = patient.specialNotes;
         allReceptionCards.forEach(card => {
             const cardValue = card.dataset.value;
-            const isGroupCard = card.dataset.isGroup === 'true';
-            let isSelected = false;
-            if(isGroupCard) { if (patient.labs.includes(cardValue)) { isSelected = true; } }
-            else { isSelected = patient.labs.includes(cardValue) || patient.statuses.includes(cardValue); }
-            if (isSelected) {
+            if (patient.labs.includes(cardValue) || patient.statuses.includes(cardValue)) {
                 if (card.parentElement.id === 'status-selection' && cardValue === '至急対応') {
                     card.classList.add('selected-urgent');
                 } else {
@@ -378,38 +402,52 @@ const firebaseConfig = {
     }
 
     async function handleAwayButtonClick(patientId) {
-        const doc = await patientsCollection.doc(patientId).get();
-        if (!doc.exists) return;
-        const isCurrentlyAway = doc.data().isAway;
-        await patientsCollection.doc(patientId).update({ isAway: !isCurrentlyAway, awayTime: !isCurrentlyAway ? new Date() : null });
+        try {
+            const doc = await patientsCollection.doc(patientId).get();
+            if (!doc.exists) return;
+            const isCurrentlyAway = doc.data().isAway;
+            await patientsCollection.doc(patientId).update({ isAway: !isCurrentlyAway, awayTime: !isCurrentlyAway ? new Date() : null });
+        } catch (error) {
+            console.error("離席状態の更新に失敗: ", error);
+        }
     }
 
     async function handleCancelButtonClick(patientId) {
         if (confirm('この受付を本当取り消しますか？（すべての検査がキャンセルされます）')) {
-            if (patientId) await patientsCollection.doc(patientId).delete();
+            try {
+                if (patientId) await patientsCollection.doc(patientId).delete();
+            } catch (error) {
+                console.error("受付取消に失敗: ", error);
+                alert("受付取消に失敗しました。");
+            }
         }
     }
 
     async function handleCancelLabReception(patientId) {
         const patientRef = patientsCollection.doc(patientId);
-        const doc = await patientRef.get();
-        if (!doc.exists) return;
-        const patient = doc.data();
-        const currentLabGroup = labRoomSelect.value;
-        if (!currentLabGroup) return;
-        if (confirm(`「${currentLabGroup}」の受付のみを取り消しますか？`)) {
-            const newLabs = patient.labs.filter(lab => lab !== currentLabGroup);
-            if (newLabs.length === 0) {
-                await patientRef.delete();
-            } else {
-                const updateData = { labs: newLabs };
-                if (patient.isExamining && (Object.keys(roomConfiguration).find(key => roomConfiguration[key]?.includes(patient.assignedExamRoom)) || patient.assignedExamRoom) === currentLabGroup) {
-                    updateData.isExamining = false;
-                    updateData.assignedExamRoom = null;
-                    updateData.inRoomSince = null;
+        try {
+            const doc = await patientRef.get();
+            if (!doc.exists) return;
+            const patient = doc.data();
+            const currentLabGroup = labRoomSelect.value;
+            if (!currentLabGroup) return;
+            if (confirm(`「${currentLabGroup}」の受付のみを取り消しますか？`)) {
+                const newLabs = patient.labs.filter(lab => lab !== currentLabGroup);
+                if (newLabs.length === 0) {
+                    await patientRef.delete();
+                } else {
+                    const updateData = { labs: newLabs };
+                    if (patient.isExamining && (Object.keys(roomConfiguration).find(key => roomConfiguration[key]?.includes(patient.assignedExamRoom)) || patient.assignedExamRoom) === currentLabGroup) {
+                        updateData.isExamining = false;
+                        updateData.assignedExamRoom = null;
+                        updateData.inRoomSince = null;
+                    }
+                    await patientRef.update(updateData);
                 }
-                await patientRef.update(updateData);
             }
+        } catch (error) {
+            console.error("検査室受付の取消に失敗: ", error);
+            alert("検査室受付の取消に失敗しました。");
         }
     }
     
@@ -418,10 +456,13 @@ const firebaseConfig = {
         const listScrollTop = registeredListContainer.scrollTop;
         registeredListContainer.innerHTML = '';
         if (registeredPatients.length === 0) { registeredListContainer.innerHTML = '<p class="no-patients">現在登録されている患者はいません。</p>'; return; }
+        const fragment = document.createDocumentFragment();
         registeredPatients.forEach(patient => {
-            const cardHtml = renderPatientCardHTML(patient, 'reception');
-            registeredListContainer.insertAdjacentHTML('beforeend', cardHtml);
+            const cardEl = document.createElement('div');
+            cardEl.innerHTML = renderPatientCardHTML(patient, 'reception');
+            fragment.appendChild(cardEl.firstElementChild);
         });
+        registeredListContainer.appendChild(fragment);
         registeredListContainer.scrollTop = listScrollTop;
     }
     
@@ -433,10 +474,13 @@ const firebaseConfig = {
         if (!selectedRoomOrGroup) { labWaitingListContainer.innerHTML = '<p class="no-patients">検査室を選択してください。</p>'; return; }
         const waitingPatients = registeredPatients.filter(p => p.labs.includes(selectedRoomOrGroup));
         if (waitingPatients.length === 0) { labWaitingListContainer.innerHTML = `<p class="no-patients">${selectedRoomOrGroup}の待機患者はいません。</p>`; return; }
+        const fragment = document.createDocumentFragment();
         waitingPatients.forEach(patient => {
-            const cardHtml = renderPatientCardHTML(patient, 'lab');
-            labWaitingListContainer.insertAdjacentHTML('beforeend', cardHtml);
+            const cardEl = document.createElement('div');
+            cardEl.innerHTML = renderPatientCardHTML(patient, 'lab');
+            fragment.appendChild(cardEl.firstElementChild);
         });
+        labWaitingListContainer.appendChild(fragment);
     }
 
     function renderWaitingDisplay() {
@@ -458,7 +502,9 @@ const firebaseConfig = {
             let waitTime = 0;
             if (waitCount > 0) {
                 const earliestPatient = patientsForThisGroup.reduce((earliest, current) => new Date(earliest.receptionTime) < new Date(current.receptionTime) ? earliest : current);
-                waitTime = Math.round((new Date() - new Date(earliestPatient.receptionTime)) / (1000 * 60));
+                if (earliestPatient && earliestPatient.receptionTime) {
+                    waitTime = Math.round((new Date() - earliestPatient.receptionTime) / (1000 * 60));
+                }
             }
             const roomNameShort = groupName.split('(')[0];
             let noteHtml = specialNoteRooms.includes(roomName) ? `<p class="room-note">${specialNoteText}</p>` : '';
@@ -496,11 +542,12 @@ const firebaseConfig = {
         else if (viewType === 'lab') {
             const examButton = isExaminingInThisGroup ? `<button class="btn finish-exam-btn">検査終了</button>` : `<button class="btn exam-btn" ${patientData.isExamining ? 'disabled' : ''}>検査</button>`;
             const groupNameForChange = Object.keys(roomConfiguration).find(key => roomConfiguration[key]?.includes(patientData.assignedExamRoom));
-            const changeRoomButton = (isExaminingInThisGroup && groupNameForChange) ? `<button class="btn change-room-btn">部屋移動</button>` : '';
+            const changeRoomButton = (isExaminingInThisGroup && groupNameForChange && roomConfiguration[groupNameForChange].length > 1) ? `<button class="btn change-room-btn">部屋移動</button>` : '';
             actionsHtml = `<div class="card-actions">${examButton}${changeRoomButton}<button class="btn away-btn">${isAway ? '戻り' : 'トイレ離席'}</button><button class="btn edit-btn">編集</button><button class="btn cancel-btn">受付取消</button></div>`;
         }
+        const receptionTimeStr = patientData.receptionTime ? patientData.receptionTime.toLocaleTimeString('ja-JP') : '取得中...';
         const idLineHtml = `<p class="card-id-line"><strong>番号札:</strong> <span class="card-ticket-number">${patientData.ticketNumber || '未'}</span> / <strong>患者ID:</strong> ${patientData.patientId || '未'}</p>`;
-        return `<div class="patient-card ${isUrgent ? 'is-urgent' : ''} ${isAway ? 'is-away' : ''} ${isExaminingInLab && isExaminingInThisGroup ? 'is-examining-in-lab' : ''}" data-id="${patientData.id}" draggable="true"><div class="patient-card-drag-area"><div class="drag-handle">⠿</div><div class="card-up-down"><button class="up-btn" title="上へ">▲</button><button class="down-btn" title="下へ">▼</button></div></div><div class="patient-card-info">${idLineHtml}<p><strong>受付時刻:</strong> ${patientData.receptionTime.toLocaleTimeString('ja-JP')}</p><p><strong>検査室:</strong> ${patientData.labs.join(', ') || 'なし'}</p><p><strong>ステータス:</strong> ${statusHtml}</p>${inRoomHtml}${awayHtml}${notesHtml}${actionsHtml}</div></div>`;
+        return `<div class="patient-card ${isUrgent ? 'is-urgent' : ''} ${isAway ? 'is-away' : ''} ${isExaminingInLab && isExaminingInThisGroup ? 'is-examining-in-lab' : ''}" data-id="${patientData.id}" draggable="true"><div class="patient-card-drag-area"><div class="drag-handle">⠿</div><div class="card-up-down"><button class="up-btn" title="上へ">▲</button><button class="down-btn" title="下へ">▼</button></div></div><div class="patient-card-info">${idLineHtml}<p><strong>受付時刻:</strong> ${receptionTimeStr}</p><p><strong>検査室:</strong> ${patientData.labs.join(', ') || 'なし'}</p><p><strong>ステータス:</strong> ${statusHtml}</p>${inRoomHtml}${awayHtml}${notesHtml}${actionsHtml}</div></div>`;
     }
     
     function populateLabRoomSelect() {
@@ -517,9 +564,6 @@ const firebaseConfig = {
     }
     
     function startCamera(context) {
-        // 注記: カメラ機能はセキュアなコンテキスト(HTTPS)でのみ動作します。
-        // ローカルでテストする場合は 'http://localhost' や 'http://127.0.0.1' を使用するか、
-        // ローカル開発サーバーをHTTPSで実行する必要があります。'file://' プロトコルでは動作しません。
         if (!cameraContainer || !qrReaderDiv) return;
         qrScanContext = context;
         if (!html5QrCode) {
@@ -534,11 +578,9 @@ const firebaseConfig = {
         cameraContainer.classList.add('is-visible');
         const config = { fps: 10, qrbox: { width: 250, height: 250 } };
 
-        // 環境カメラ（背面カメラ）を優先して使用します。
         html5QrCode.start({ facingMode: "environment" }, config, onQrSuccess, onQrFailure)
             .catch(err => {
                 console.warn("背面カメラの起動に失敗:", err, "前面カメラで再試行します。");
-                // 背面カメラに失敗した場合、ユーザーカメラ（前面カメラ）で試行
                 html5QrCode.start({ facingMode: "user" }, config, onQrSuccess, onQrFailure)
                     .catch(err2 => {
                         console.error("QRカメラの起動に失敗しました:", err2);
@@ -550,17 +592,13 @@ const firebaseConfig = {
 
     function onQrSuccess(decodedText, decodedResult) {
         stopCamera();
-        // 要望に応じてQRコードのバリデーションを0-9999の数値に変更
         const validQrPattern = /^[0-9]{1,4}$/; 
         if (validQrPattern.test(decodedText)) {
             if (qrScanContext === 'reception') {
                 ticketNumberInput.value = decodedText;
                 updatePreview();
-
                 const patientId = patientIdInput.value;
                 const selectedLabs = Array.from(labSelectionCards).filter(c => c.classList.contains('selected'));
-                
-                // 患者IDが7桁で、検査室が1つ以上選択されていれば自動登録
                 if (patientId.length === 7 && selectedLabs.length > 0) {
                     registerBtn.click();
                 }
@@ -605,12 +643,16 @@ const firebaseConfig = {
         else if (direction === 'down' && index < registeredPatients.length - 1) { otherIndex = index + 1; }
         
         if (otherIndex !== -1) {
-            const patient1 = registeredPatients[index];
-            const patient2 = registeredPatients[otherIndex];
-            const batch = db.batch();
-            batch.update(patientsCollection.doc(patient1.id), { order: patient2.order });
-            batch.update(patientsCollection.doc(patient2.id), { order: patient1.order });
-            await batch.commit();
+            try {
+                const patient1 = registeredPatients[index];
+                const patient2 = registeredPatients[otherIndex];
+                const batch = db.batch();
+                batch.update(patientsCollection.doc(patient1.id), { order: patient2.order });
+                batch.update(patientsCollection.doc(patient2.id), { order: patient1.order });
+                await batch.commit();
+            } catch (error) {
+                console.error("順序の移動に失敗: ", error);
+            }
         }
     }
         
@@ -686,55 +728,36 @@ const firebaseConfig = {
     }
 
     function getCurrentFormData() {
-        const labs = Array.from(labSelectionCards)
-            .filter(c => c.classList.contains('selected'))
-            .map(c => c.dataset.value);
-        const statuses = Array.from(statusSelectionCards)
-            .filter(c => c.classList.contains('selected') || c.classList.contains('selected-urgent'))
-            .map(c => c.dataset.value);
-        
+        const statuses = Array.from(statusSelectionCards).filter(c => c.classList.contains('selected') || c.classList.contains('selected-urgent')).map(c => c.dataset.value);
         let order = Date.now();
         if (statuses.includes('至急対応')) {
-            const minOrder = registeredPatients.length > 0 ? Math.min(...registeredPatients.map(p => p.order)) : 0;
+            const urgentOrders = registeredPatients.filter(p => p.statuses.includes('至急対応')).map(p => p.order);
+            const minOrder = urgentOrders.length > 0 ? Math.min(...urgentOrders) : (registeredPatients[0]?.order || 0);
             order = minOrder - 1;
         }
 
         return {
-            patientId: patientIdInput.value,
-            ticketNumber: ticketNumberInput.value,
-            receptionTime: firebase.firestore.FieldValue.serverTimestamp(),
-            labs: labs,
+            patientId: patientIdInput.value, ticketNumber: ticketNumberInput.value, receptionTime: firebase.firestore.FieldValue.serverTimestamp(),
+            labs: Array.from(labSelectionCards).filter(c => c.classList.contains('selected')).map(c => c.dataset.value),
             statuses: statuses,
-            specialNotes: specialNotesInput.value,
-            isAway: false,
-            awayTime: null,
-            isExamining: false,
-            assignedExamRoom: null,
-            inRoomSince: null,
+            specialNotes: specialNotesInput.value, isAway: false, awayTime: null, isExamining: false, assignedExamRoom: null, inRoomSince: null,
             order: order
         };
     }
 
-
     function updatePreview() {
         if (!previewArea) return;
-        // プレビュー用に仮のデータを生成（サーバータイムスタンプは使えないため）
         const formData = {
-            patientId: patientIdInput.value,
-            ticketNumber: ticketNumberInput.value,
-            receptionTime: new Date(), // 仮の現在時刻
+            patientId: patientIdInput.value, ticketNumber: ticketNumberInput.value, receptionTime: new Date(),
             labs: Array.from(labSelectionCards).filter(c => c.classList.contains('selected')).map(c => c.dataset.value),
             statuses: Array.from(statusSelectionCards).filter(c => c.classList.contains('selected') || c.classList.contains('selected-urgent')).map(c => c.dataset.value),
-            specialNotes: specialNotesInput.value,
-            isAway: false, awayTime: null, isExamining: false, assignedExamRoom: null, inRoomSince: null,
+            specialNotes: specialNotesInput.value, isAway: false, awayTime: null, isExamining: false, assignedExamRoom: null, inRoomSince: null, id: 'preview'
         };
 
         if (!formData.patientId && !formData.ticketNumber && formData.labs.length === 0 && formData.statuses.length === 0 && !formData.specialNotes) {
             previewArea.innerHTML = '<p class="no-patients">入力するとここにプレビューが表示されます。</p>';
             return;
         }
-        
-        // renderPatientCardHTMLはDateオブジェクトを期待するため、仮のデータで呼び出す
         previewArea.innerHTML = renderPatientCardHTML(formData, 'reception');
     }
 
