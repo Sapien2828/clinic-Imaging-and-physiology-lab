@@ -43,6 +43,7 @@ window.addEventListener('DOMContentLoaded', () => {
     let qrScanContext = null;
     let html5QrCode = null;
 
+    // DOM要素の取得は、グローバルスコープで一度だけ行う
     const allTabs = document.querySelectorAll('.tab-content');
     const tabButtons = document.querySelectorAll('.tab-button');
     const receptionTab = document.getElementById('reception-tab');
@@ -58,7 +59,6 @@ window.addEventListener('DOMContentLoaded', () => {
     const receptionQrReaderBtn = document.getElementById('reception-qr-reader-btn');
     const labQrReaderBtn = document.getElementById('lab-qr-reader-btn');
     const cameraContainer = document.getElementById('camera-container');
-    const qrReaderDiv = document.getElementById('qr-reader');
     const stopCameraBtn = document.getElementById('stop-camera-btn');
     const labRoomSelect = document.getElementById('lab-room-select');
     const labWaitingListTitle = document.getElementById('lab-waiting-list-title');
@@ -118,7 +118,6 @@ window.addEventListener('DOMContentLoaded', () => {
     }
 
     function setupEventListeners() {
-        const allFocusableElements = Array.from(receptionTab.querySelectorAll('[tabindex]')).filter(el => el.tabIndex > 0).sort((a, b) => a.tabIndex - b.tabIndex);
         tabButtons.forEach(button => { button.addEventListener('click', (e) => {
             const targetTabId = e.currentTarget.dataset.tab;
             tabButtons.forEach(btn => btn.classList.remove('active'));
@@ -179,7 +178,7 @@ window.addEventListener('DOMContentLoaded', () => {
             card.addEventListener('click', () => toggleCardSelection(card));
             card.addEventListener('keydown', (e) => { if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); toggleCardSelection(card); } });
         });
-        if (patientIdInput) { patientIdInput.addEventListener('input', (e) => handlePatientIdInput(e, allFocusableElements)); patientIdInput.addEventListener('blur', handlePatientIdBlur); }
+        if (patientIdInput) { patientIdInput.addEventListener('input', (e) => handlePatientIdInput(e)); patientIdInput.addEventListener('blur', handlePatientIdBlur); }
         if (ticketNumberInput) { ticketNumberInput.addEventListener('input', handleNumericInput); ticketNumberInput.addEventListener('keydown', handleTicketNumberEnter); }
         if (specialNotesInput) { specialNotesInput.addEventListener('input', updatePreview); }
         if (receptionQrReaderBtn) { receptionQrReaderBtn.addEventListener('click', () => startCamera('reception')); }
@@ -187,7 +186,6 @@ window.addEventListener('DOMContentLoaded', () => {
         if (stopCameraBtn) { stopCameraBtn.addEventListener('click', stopCamera); }
         if (labRoomSelect) { labRoomSelect.addEventListener('change', renderLabWaitingList); }
         if (resetAllBtn) { resetAllBtn.addEventListener('click', () => handleResetAll(false)); }
-        if (receptionTab) { receptionTab.addEventListener('keydown', (e) => handleArrowKeyNavigation(e, allFocusableElements)); }
     }
     
     function showModal(title, bodyHtml, okCallback, showCancel = true) {
@@ -563,21 +561,30 @@ window.addEventListener('DOMContentLoaded', () => {
         });
     }
     
+    // ★★★★★ カメラ起動の最終修正版 ★★★★★
     function startCamera(context) {
-        if (!cameraContainer || !qrReaderDiv) return;
-        qrScanContext = context;
+        if (!cameraContainer) {
+            alert("カメラ表示エリアが見つかりません。");
+            return;
+        }
 
-        // 先にカメラの表示エリアを画面に表示する
+        qrScanContext = context;
         cameraContainer.classList.add('is-visible');
 
-        // 表示された後で、QRリーダーの初期化を行う
+        // この要素が確実に見つかるように、ここで再度取得する
+        const qrReaderElement = document.getElementById('qr-reader');
+        if (!qrReaderElement) {
+            alert("QRリーダーの描画エリアが見つかりません。");
+            cameraContainer.classList.remove('is-visible');
+            return;
+        }
+
         if (!html5QrCode) {
             try {
                 html5QrCode = new Html5Qrcode("qr-reader");
             } catch (e) {
                 console.error("Html5Qrcodeの初期化に失敗しました。", e);
                 alert("QRコードリーダーの初期化に失敗しました。ページを再読み込みしてください。");
-                // 失敗した場合は表示エリアを隠す
                 cameraContainer.classList.remove('is-visible');
                 return;
             }
@@ -585,7 +592,6 @@ window.addEventListener('DOMContentLoaded', () => {
 
         const config = { fps: 10, qrbox: { width: 250, height: 250 } };
 
-        // カメラを起動する
         html5QrCode.start({ facingMode: "environment" }, config, onQrSuccess, onQrFailure)
             .catch(err => {
                 console.warn("背面カメラの起動に失敗:", err, "前面カメラで再試行します。");
@@ -638,7 +644,7 @@ window.addEventListener('DOMContentLoaded', () => {
                 console.error("カメラの停止に失敗しました。", err);
                 cameraContainer.classList.remove('is-visible');
             });
-        } else {
+        } else if (cameraContainer) {
             cameraContainer.classList.remove('is-visible');
         }
     }
@@ -680,7 +686,7 @@ window.addEventListener('DOMContentLoaded', () => {
         updatePreview();
     }
 
-    function handlePatientIdInput(e, focusableElements) {
+    function handlePatientIdInput(e) {
         let value = e.target.value.replace(/[^0-9]/g, '').slice(0, 7);
         e.target.value = value;
         if (value.length === 7) {
@@ -703,36 +709,23 @@ window.addEventListener('DOMContentLoaded', () => {
 
     function handleTicketNumberEnter(event) { if (event.key === 'Enter') { event.preventDefault(); registerBtn.click(); } }
         
-    function handleArrowKeyNavigation(e, focusableElements) {
+    function handleArrowKeyNavigation(e) {
+        if (!receptionTab.contains(document.activeElement)) return;
         if (!['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) return;
-        const currentElement = document.activeElement;
-        const currentIndex = focusableElements.indexOf(currentElement);
-        if (currentIndex === -1) return;
-        e.preventDefault();
         
-        if (currentElement.classList.contains('card-button')) {
-            const cards = Array.from(currentElement.closest('.selectable-cards').querySelectorAll('.card-button'));
-            const numCols = new Set(cards.map(c => c.getBoundingClientRect().left)).size || 1;
-            const currentCardIndex = cards.indexOf(currentElement);
-            let nextCard = null;
-            switch (e.key) {
-                case 'ArrowRight': if (currentCardIndex < cards.length - 1) nextCard = cards[currentCardIndex + 1]; break;
-                case 'ArrowLeft':  if (currentCardIndex > 0) nextCard = cards[currentCardIndex - 1]; break;
-                case 'ArrowDown':  if (currentCardIndex + numCols < cards.length) nextCard = cards[currentCardIndex + numCols]; break;
-                case 'ArrowUp':    if (currentCardIndex - numCols >= 0) nextCard = cards[currentCardIndex - numCols]; break;
-            }
-            if (nextCard) {
-                nextCard.focus();
-            } else {
-                const nextOverallIndex = (e.key === 'ArrowDown' || e.key === 'ArrowRight') ? focusableElements.indexOf(cards[cards.length - 1]) + 1 : focusableElements.indexOf(cards[0]) - 1;
-                if(nextOverallIndex >= 0 && nextOverallIndex < focusableElements.length) focusableElements[nextOverallIndex].focus();
-            }
-        } else {
-             const nextOverallIndex = (e.key === 'ArrowDown' || e.key === 'ArrowRight') ? currentIndex + 1 : currentIndex - 1;
-             if(nextOverallIndex >= 0 && nextOverallIndex < focusableElements.length) {
-                focusableElements[nextOverallIndex].focus();
-             }
+        const focusable = Array.from(receptionTab.querySelectorAll('[tabindex]')).filter(el => el.tabIndex > 0).sort((a,b) => a.tabIndex - b.tabIndex);
+        const currentIndex = focusable.indexOf(document.activeElement);
+        if (currentIndex === -1) return;
+        
+        e.preventDefault();
+
+        let nextIndex = currentIndex;
+        if (e.key === 'ArrowDown' || e.key === 'ArrowRight') {
+            nextIndex = (currentIndex + 1) % focusable.length;
+        } else if (e.key === 'ArrowUp' || e.key === 'ArrowLeft') {
+            nextIndex = (currentIndex - 1 + focusable.length) % focusable.length;
         }
+        focusable[nextIndex].focus();
     }
 
     function getCurrentFormData() {
@@ -780,7 +773,7 @@ window.addEventListener('DOMContentLoaded', () => {
             registerBtn.classList.add('btn-success');
         }
         updatePreview();
-        if (shouldFocus) { patientIdInput.focus(); }
+        if (shouldFocus && patientIdInput) { patientIdInput.focus(); }
     }
         
     initialize();
