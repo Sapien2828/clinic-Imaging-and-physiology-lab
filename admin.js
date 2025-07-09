@@ -1,4 +1,4 @@
-// admin.js (検査中断・待機状態に戻す機能を追加した最終版)
+// admin.js (入力制限とキーボード操作を再修正した最終版)
 window.addEventListener('DOMContentLoaded', () => {
 
     if (!document.querySelector('.admin-container')) {
@@ -105,7 +105,6 @@ window.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // ★★★ 「待機中に戻す」ボタンのイベントリスナーを追加 ★★★
     function setupEventListeners() {
         tabButtons.forEach(button => { button.addEventListener('click', (e) => {
             const targetTabId = e.currentTarget.dataset.tab;
@@ -135,7 +134,7 @@ window.addEventListener('DOMContentLoaded', () => {
                     if (target.matches('.finish-exam-btn')) handleFinishExamButtonClick(patientId);
                     if (target.matches('.change-room-btn')) handleRoomChangeClick(patientId);
                     if (target.matches('.cancel-btn')) handleCancelLabReception(patientId);
-                    if (target.matches('.return-to-wait-btn')) handleReturnToWaiting(patientId); // 新しいリスナー
+                    if (target.matches('.return-to-wait-btn')) handleReturnToWaiting(patientId);
                 }
             });
             let draggedItem = null;
@@ -266,7 +265,6 @@ window.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    // ★★★ 検査を中断し、待機状態に戻すための新しい関数 ★★★
     async function handleReturnToWaiting(patientId) {
         const patientRef = patientsCollection.doc(patientId);
         try {
@@ -504,7 +502,6 @@ window.addEventListener('DOMContentLoaded', () => {
         // (この関数は変更なし)
     }
 
-    // ★★★ ボタンの表示ロジックを修正 ★★★
     function renderPatientCardHTML(patientData, viewType) {
         const isUrgent = patientData.statuses.includes('至急対応');
         const isAway = patientData.isAway;
@@ -632,11 +629,34 @@ window.addEventListener('DOMContentLoaded', () => {
     }
     
     async function handleMove(patientId, direction) {
-        // (この関数は変更なし)
+        const index = registeredPatients.findIndex(p => p.id === patientId);
+        if (index === -1) return;
+        let otherIndex = -1;
+        if (direction === 'up' && index > 0) { otherIndex = index - 1; } 
+        else if (direction === 'down' && index < registeredPatients.length - 1) { otherIndex = index + 1; }
+        
+        if (otherIndex !== -1) {
+            try {
+                const patient1 = registeredPatients[index];
+                const patient2 = registeredPatients[otherIndex];
+                const batch = db.batch();
+                batch.update(patientsCollection.doc(patient1.id), { order: patient2.order });
+                batch.update(patientsCollection.doc(patient2.id), { order: patient1.order });
+                await batch.commit();
+            } catch (error) {
+                console.error("順序の移動に失敗: ", error);
+            }
+        }
     }
         
     function getDragAfterElement(container, y) {
-        // (この関数は変更なし)
+        const draggableElements = [...container.querySelectorAll('.patient-card:not(.dragging)')];
+        return draggableElements.reduce((closest, child) => {
+            const box = child.getBoundingClientRect();
+            const offset = y - box.top - box.height / 2;
+            if (offset < 0 && offset > closest.offset) { return { offset: offset, element: child }; } 
+            else { return closest; }
+        }, { offset: Number.NEGATIVE_INFINITY }).element;
     }
         
     function toggleCardSelection(card) {
@@ -646,39 +666,65 @@ window.addEventListener('DOMContentLoaded', () => {
     }
 
     function handlePatientIdInput(e) {
-        // (この関数は変更なし)
+        let value = e.target.value.replace(/[^0-9]/g, '').slice(0, 7);
+        e.target.value = value;
+        if (value.length === 7) {
+            const firstLabCard = document.querySelector('#lab-selection .card-button');
+            if (firstLabCard) firstLabCard.focus();
+        }
+        updatePreview();
     }
         
     function handlePatientIdBlur(event) {
-        // (この関数は変更なし)
+        let value = event.target.value;
+        if (value.length > 0 && value.length < 7) { event.target.value = value.padStart(7, '0'); }
+        updatePreview();
     }
 
     function handleNumericInput(event) {
-        // (この関数は変更なし)
+        event.target.value = event.target.value.replace(/[^0-9]/g, '').slice(0, 4);
+        updatePreview();
     }
 
     function handleTicketNumberEnter(event) { if (event.key === 'Enter') { event.preventDefault(); registerBtn.click(); } }
 
+    // ★★★ 上下左右の矢印キー操作を再修正 ★★★
     function handleArrowKeyNavigation(e) {
-        const focusableCards = Array.from(receptionTab.querySelectorAll('.selectable-cards .card-button'));
         const activeElement = document.activeElement;
-
-        if (!focusableCards.includes(activeElement)) return;
+        if (!activeElement || !activeElement.classList.contains('card-button')) return;
         if (!['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) return;
         
         e.preventDefault();
 
-        const currentIndex = focusableCards.indexOf(activeElement);
-        let nextIndex = currentIndex;
+        const container = activeElement.closest('.selectable-cards');
+        if (!container) return;
 
-        if (e.key === 'ArrowRight' && currentIndex < focusableCards.length - 1) {
-            nextIndex = currentIndex + 1;
-        } else if (e.key === 'ArrowLeft' && currentIndex > 0) {
-            nextIndex = currentIndex - 1;
+        const cards = Array.from(container.querySelectorAll('.card-button'));
+        const currentIndex = cards.indexOf(activeElement);
+
+        const cardRects = cards.map(c => c.getBoundingClientRect());
+        const firstCardTop = cardRects.length > 0 ? cardRects[0].top : 0;
+        const numCols = cardRects.filter(rect => rect.top === firstCardTop).length;
+        if (numCols <= 0) return;
+
+        let nextIndex = -1;
+        switch (e.key) {
+            case 'ArrowRight':
+                if (currentIndex < cards.length - 1) nextIndex = currentIndex + 1;
+                break;
+            case 'ArrowLeft':
+                if (currentIndex > 0) nextIndex = currentIndex - 1;
+                break;
+            case 'ArrowDown':
+                if (currentIndex + numCols < cards.length) nextIndex = currentIndex + numCols;
+                break;
+            case 'ArrowUp':
+                if (currentIndex - numCols >= 0) nextIndex = currentIndex - numCols;
+                break;
         }
-        
-        if (nextIndex !== currentIndex) {
-            focusableCards[nextIndex].focus();
+
+        if (nextIndex !== -1 && nextIndex < cards.length) {
+            cards[nextIndex].focus();
         }
     }
 
@@ -706,7 +752,21 @@ window.addEventListener('DOMContentLoaded', () => {
     }
 
     function updatePreview() {
-        // (この関数は変更なし)
+        if (!previewArea) return;
+        const formData = {
+            patientId: patientIdInput.value, 
+            ticketNumber: ticketNumberInput.value,
+            receptionTime: new Date(),
+            labs: Array.from(labSelectionCards).filter(c => c.classList.contains('selected')).map(c => c.dataset.value),
+            statuses: Array.from(statusSelectionCards).filter(c => c.classList.contains('selected') || c.classList.contains('selected-urgent')).map(c => c.dataset.value),
+            specialNotes: specialNotesInput.value, isAway: false, awayTime: null, isExamining: false, assignedExamRoom: null, inRoomSince: null, id: 'preview'
+        };
+
+        if (!formData.patientId && !formData.ticketNumber && formData.labs.length === 0 && formData.statuses.length === 0 && !formData.specialNotes) {
+            previewArea.innerHTML = '<p class="no-patients">入力するとここにプレビューが表示されます。</p>';
+            return;
+        }
+        previewArea.innerHTML = renderPatientCardHTML(formData, 'reception');
     }
 
     function resetReceptionForm(shouldFocus = true) {
