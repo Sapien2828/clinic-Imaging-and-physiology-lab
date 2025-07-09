@@ -166,8 +166,10 @@ hr { margin: 24px 0; border: 0; border-top: 1px solid var(--border-color); }
 
 /* ========== スマートフォン向けレスポンシブ対応 ========== */
 @media (max-width: 992px) { .reception-grid, .lab-controls { grid-template-columns: 1fr; } }
-@media (max-width: 768px) { .waiting-display-grid { grid-template-columns: 1fr; } 
+@media (max-width: 768px) { 
+    .waiting-display-grid { grid-template-columns: 1fr; } 
     #fullscreen-btn { display: none; }
+    .display-header { flex-direction: column; align-items: center; }
 }
 
 /* 検査関連ボタンのサイズ調整 */
@@ -193,6 +195,7 @@ hr { margin: 24px 0; border: 0; border-top: 1px solid var(--border-color); }
     border-radius: var(--border-radius);
     font-size: 0.9rem;
     color: #004085;
+    text-align: center;
 }
 .ios-prompt-container p { margin: 0; line-height: 1.5; }
 .ios-prompt-container svg { width: 1em; height: 1em; vertical-align: -0.15em; }
@@ -201,11 +204,12 @@ hr { margin: 24px 0; border: 0; border-top: 1px solid var(--border-color); }
 .dense-view .waiting-display-grid {
     display: grid;
     grid-template-columns: repeat(5, 1fr);
-    grid-auto-rows: calc((100vh - 40px) / 3); /* ヘッダーが隠れるため高さを調整 */
+    grid-auto-rows: calc((100vh - 40px) / 3);
     gap: 5px;
 }
-.dense-view .display-header {
-    display: none; /* 全画面時はヘッダーを隠す */
+.dense-view .display-header,
+.dense-view .ios-prompt-container {
+    display: none;
 }
 .dense-view .waiting-room-card {
     padding: 1vh; border-top-width: 4px; display: flex; flex-direction: column; justify-content: space-between;
@@ -216,8 +220,8 @@ hr { margin: 24px 0; border: 0; border-top: 1px solid var(--border-color); }
 .dense-view .now-serving-number { font-size: 4.5vh; flex-grow: 1; display: flex; align-items: center; justify-content: center; margin: 0; min-height: 0; }
 .dense-view .next-in-line, .dense-view .room-note { display: none; }
 
-/* ★★★ スマートフォンなどを横向きにした時の高密度表示スタイル ★★★ */
-@media (orientation: landscape) and (max-height: 600px) {
+/* ★★★ スマートフォンなどを横向きにした時の高密度スタイル ★★★ */
+@media (orientation: landscape) and (max-width: 900px) {
     .display-page-container .waiting-display-grid {
         grid-template-columns: repeat(5, 1fr);
         grid-auto-rows: calc((100vh - 20px) / 3);
