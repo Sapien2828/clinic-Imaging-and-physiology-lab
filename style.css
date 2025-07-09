@@ -36,7 +36,7 @@ hr { margin: 24px 0; border: 0; border-top: 1px solid var(--border-color); }
 /* ========== 管理者画面・待合画面 共通スタイル ========== */
 .admin-container, .display-page-container { width: 100%; max-width: 1200px; margin: 20px auto; padding: 0 15px; box-sizing: border-box; }
 
-/* ★★★ ヘッダーのレイアウトをFlexboxに修正 ★★★ */
+/* ========== display.html ヘッダーのスタイル ========== */
 .display-header {
     display: flex;
     justify-content: space-between;
@@ -53,12 +53,12 @@ hr { margin: 24px 0; border: 0; border-top: 1px solid var(--border-color); }
     margin: 0;
 }
 .header-text-group h2 {
-    border-bottom: none; /* 下線を削除 */
+    border-bottom: none;
     padding-bottom: 0;
-    margin-bottom: 5px; /* 説明文との余白 */
+    margin-bottom: 5px;
 }
 .header-button-group {
-    flex-shrink: 0; /* ボタンが縮まないようにする */
+    flex-shrink: 0;
     margin-left: 20px;
 }
 
@@ -208,7 +208,11 @@ hr { margin: 24px 0; border: 0; border-top: 1px solid var(--border-color); }
 .ios-prompt-container p { margin: 0; line-height: 1.5; }
 .ios-prompt-container svg { width: 1em; height: 1em; vertical-align: -0.15em; }
 
-/* PC全画面表示、またはスマホ横向きの時の高密度表示スタイル */
+/* ★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★ */
+/* ★★★ ここからが高密度表示用のスタイル ★★★ */
+/* ★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★ */
+
+/* PCの全画面表示ボタン、またはスマホの横向きで適用される */
 .dense-view .waiting-display-grid,
 @media (orientation: landscape) and (max-height: 600px) {
     .display-page-container .waiting-display-grid {
