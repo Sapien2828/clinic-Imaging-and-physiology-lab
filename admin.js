@@ -1,4 +1,4 @@
-// admin.js (最終完成版 - 数値処理対応)
+// admin.js (最終完成版 - iOS背面カメラ対応)
 window.addEventListener('DOMContentLoaded', () => {
 
     if (!document.querySelector('.admin-container')) {
@@ -335,7 +335,7 @@ window.addEventListener('DOMContentLoaded', () => {
             
             const updatedData = {
                 patientId: newPatientId,
-                ticketNumber: newTicketNumber, // 数値として更新
+                ticketNumber: newTicketNumber,
                 labs: Array.from(labSelectionCards).filter(c => c.classList.contains('selected')).map(c => c.dataset.value),
                 statuses: Array.from(statusSelectionCards).filter(c => c.classList.contains('selected') || c.classList.contains('selected-urgent')).map(c => c.dataset.value),
                 specialNotes: specialNotesInput.value,
@@ -559,42 +559,28 @@ window.addEventListener('DOMContentLoaded', () => {
         });
     }
     
+    // ★★★★★ iOS背面カメラ対応・最終版 ★★★★★
     function startCamera(context) {
         if (html5QrCode && html5QrCode.isScanning) {
-            console.warn("スキャンはすでに実行中です。");
             return;
         }
         qrScanContext = context;
         cameraContainer.classList.add('is-visible');
 
-        Html5Qrcode.getCameras().then(cameras => {
-            if (cameras && cameras.length) {
-                html5QrCode = new Html5Qrcode("qr-reader");
-                const config = { fps: 10, qrbox: { width: 250, height: 250 } };
-                
-                let cameraId = cameras[0].id;
-                if (cameras.length > 1) {
-                    const rearCamera = cameras.find(camera => camera.label.toLowerCase().includes('back'));
-                    if (rearCamera) {
-                        cameraId = rearCamera.id;
-                    }
-                }
-                
-                html5QrCode.start(cameraId, config, onQrSuccess, onQrFailure)
-                    .catch(err => {
-                        console.error("カメラ起動に失敗:", err);
-                        alert("カメラの起動に失敗しました。");
+        html5QrCode = new Html5Qrcode("qr-reader");
+        const config = { fps: 10, qrbox: { width: 250, height: 250 } };
+        
+        // 背面カメラを優先して起動を試みる
+        html5QrCode.start({ facingMode: "environment" }, config, onQrSuccess, onQrFailure)
+            .catch(err => {
+                // 背面カメラが失敗した場合(PC等)、デフォルトのカメラで再試行
+                console.warn("背面カメラの起動に失敗。デフォルトカメラを試します。");
+                html5QrCode.start(undefined, config, onQrSuccess, onQrFailure)
+                    .catch(err2 => {
+                        alert("カメラの起動に失敗しました。ブラウザのアクセス許可を確認してください。");
                         stopCamera();
                     });
-
-            } else {
-                alert("利用可能なカメラが見つかりません。");
-                cameraContainer.classList.remove('is-visible');
-            }
-        }).catch(err => {
-            alert("カメラへのアクセス許可が必要です。ブラウザの設定を確認してください。");
-            cameraContainer.classList.remove('is-visible');
-        });
+            });
     }
 
     function onQrSuccess(decodedText, decodedResult) {
@@ -719,7 +705,7 @@ window.addEventListener('DOMContentLoaded', () => {
 
         return {
             patientId: patientIdInput.value, 
-            ticketNumber: ticketNumber, // 数値として格納
+            ticketNumber: ticketNumber,
             receptionTime: firebase.firestore.FieldValue.serverTimestamp(),
             labs: Array.from(labSelectionCards).filter(c => c.classList.contains('selected')).map(c => c.dataset.value),
             statuses: statuses,
@@ -732,7 +718,7 @@ window.addEventListener('DOMContentLoaded', () => {
         if (!previewArea) return;
         const formData = {
             patientId: patientIdInput.value, 
-            ticketNumber: ticketNumberInput.value, // プレビューでは入力中の文字列をそのまま表示
+            ticketNumber: ticketNumberInput.value,
             receptionTime: new Date(),
             labs: Array.from(labSelectionCards).filter(c => c.classList.contains('selected')).map(c => c.dataset.value),
             statuses: Array.from(statusSelectionCards).filter(c => c.classList.contains('selected') || c.classList.contains('selected-urgent')).map(c => c.dataset.value),
