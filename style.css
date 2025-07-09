@@ -179,33 +179,38 @@ hr { margin: 24px 0; border: 0; border-top: 1px solid var(--border-color); }
     right: 15px;
 }
 
-/* 全画面表示時の高密度レイアウト用スタイル */
+/* ★★★ 全画面表示時の高密度レイアウト用スタイルを修正 ★★★ */
 .dense-view .waiting-display-grid {
     display: grid;
     grid-template-columns: repeat(5, 1fr);
-    grid-auto-rows: calc((100vh - 180px) / 3);
+    /* 画面の高さからヘッダーと隙間を引いた高さを3行で分割 */
+    grid-auto-rows: calc((100vh - 180px - 10px) / 3);
     gap: 5px;
 }
 .dense-view .waiting-room-card {
-    padding: 8px;
+    padding: 1vh; /* 画面の高さに応じた余白 */
     border-top-width: 4px;
     display: flex;
     flex-direction: column;
+    justify-content: space-between;
 }
 .dense-view .waiting-room-name {
-    font-size: 1.2rem;
-    margin-bottom: 5px;
+    font-size: 2.2vh; /* 画面の高さに連動 */
+    margin-bottom: 0.5vh;
+    line-height: 1.1;
+    font-weight: 700;
 }
 .dense-view .waiting-info p {
-    font-size: 0.9rem;
-    margin: 0 0 8px 0;
+    font-size: 1.8vh; /* 画面の高さに連動 */
+    margin: 0 0 1vh 0;
 }
 .dense-view .now-serving h4 {
-    font-size: 1rem;
-    margin-bottom: 5px;
+    font-size: 1.8vh;
+    margin-bottom: 0.5vh;
+    padding-bottom: 0.5vh;
 }
 .dense-view .now-serving-number {
-    font-size: 2.5rem;
+    font-size: 5vh; /* 画面の高さに連動 */
     flex-grow: 1;
     display: flex;
     align-items: center;
