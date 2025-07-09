@@ -1,6 +1,5 @@
 window.addEventListener('DOMContentLoaded', () => {
-    // ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
-    // 【重要】あなた自身のFirebase設定をここに貼り付けてください
+    // Firebase設定部分は変更なし
   const firebaseConfig = {
 
   apiKey: "AIzaSyCsk7SQQY58yKIn-q4ps1gZ2BRbc2k6flE",
@@ -16,7 +15,6 @@ window.addEventListener('DOMContentLoaded', () => {
   appId: "1:568457688933:web:2eee210553b939cf39538c"
 
     };
-    // ▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲
 
     firebase.initializeApp(firebaseConfig);
     const db = firebase.firestore();
@@ -93,9 +91,10 @@ window.addEventListener('DOMContentLoaded', () => {
         });
         setInterval(renderWaitingDisplay, 15000);
 
-        // ★★★ 全画面表示ボタンの機能を追加 ★★★
         const fullscreenBtn = document.getElementById('fullscreen-btn');
-        if(fullscreenBtn) {
+        const container = document.querySelector('.display-page-container');
+
+        if(fullscreenBtn && container) {
             fullscreenBtn.addEventListener('click', () => {
                 if (!document.fullscreenElement) {
                     document.documentElement.requestFullscreen().catch(err => {
@@ -106,11 +105,14 @@ window.addEventListener('DOMContentLoaded', () => {
                 }
             });
 
+            // 全画面表示の状態が変更されたときのイベント
             document.addEventListener('fullscreenchange', () => {
                 if (document.fullscreenElement) {
                     fullscreenBtn.textContent = '通常表示に戻す';
+                    container.classList.add('dense-view'); // ★★★ 高密度表示クラスを追加
                 } else {
                     fullscreenBtn.textContent = '全画面表示';
+                    container.classList.remove('dense-view'); // ★★★ 高密度表示クラスを削除
                 }
             });
         }
