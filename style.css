@@ -153,7 +153,6 @@ hr { margin: 24px 0; border: 0; border-top: 1px solid var(--border-color); }
 /* ========== スマートフォン向けレスポンシブ対応 ========== */
 @media (max-width: 992px) { .reception-grid, .lab-controls { grid-template-columns: 1fr; } }
 @media (max-width: 768px) { .waiting-display-grid { grid-template-columns: 1fr; } 
-    /* ★★★ スマホでは全画面ボタンを非表示にする ★★★ */
     #fullscreen-btn { display: none; }
 }
 
@@ -165,15 +164,26 @@ hr { margin: 24px 0; border: 0; border-top: 1px solid var(--border-color); }
     font-size: 1.1rem;
     min-width: 90px;
 }
-/* 「待機中に戻す」ボタンのスタイル */
 .card-actions .btn.return-to-wait-btn {
     background-color: var(--warning-color);
     color: #000;
 }
 
+/* display.htmlのヘッダースタイル */
+.display-header {
+    position: relative;
+    padding-bottom: 20px; 
+}
+#fullscreen-btn {
+    position: absolute;
+    bottom: -15px; /* ヘッダーの下に配置 */
+    left: 50%;
+    transform: translateX(-50%);
+}
+
 /* iOS向け案内のスタイル */
 .ios-prompt-container {
-    display: none; /* デフォルトは非表示 */
+    display: none;
     margin-top: 20px;
     padding: 15px;
     background-color: #e9f5ff;
@@ -185,15 +195,17 @@ hr { margin: 24px 0; border: 0; border-top: 1px solid var(--border-color); }
 .ios-prompt-container p { margin: 0; line-height: 1.5; }
 .ios-prompt-container svg { width: 1em; height: 1em; vertical-align: -0.15em; }
 
-/* ★★★ スマートフォンなどを横向きにした時の高密度表示スタイル ★★★ */
+/* ★★★ 高密度表示モードの定義 ★★★ */
+/* PCの全画面表示ボタン、またはスマホの横向きで適用される */
+.dense-view .waiting-display-grid,
 @media (orientation: landscape) and (max-height: 600px) {
     .display-page-container .waiting-display-grid {
         display: grid;
         grid-template-columns: repeat(5, 1fr);
-        grid-auto-rows: calc((100vh - 100px) / 3); /* ヘッダーの高さを考慮して調整 */
+        grid-auto-rows: calc((100vh - 40px) / 3);
         gap: 5px;
     }
-    .display-page-container .display-header { display: none; } /* 横向き時はヘッダーを隠す */
+    .display-page-container .display-header { display: none; }
     .display-page-container .waiting-room-card {
         padding: 1vh;
         border-top-width: 4px;

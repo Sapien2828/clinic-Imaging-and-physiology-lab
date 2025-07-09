@@ -83,9 +83,10 @@ window.addEventListener('DOMContentLoaded', () => {
       });
       setInterval(renderWaitingDisplay, 15000);
 
-      // PC向けの全画面表示ボタンの機能
       const fullscreenBtn = document.getElementById('fullscreen-btn');
-      if(fullscreenBtn) {
+      const container = document.querySelector('.display-page-container');
+
+      if(fullscreenBtn && container) {
           fullscreenBtn.addEventListener('click', () => {
               if (!document.fullscreenElement) {
                   document.documentElement.requestFullscreen().catch(err => {
@@ -96,12 +97,18 @@ window.addEventListener('DOMContentLoaded', () => {
               }
           });
 
+          // 全画面表示の状態が変更されたら、高密度表示クラスを切り替える
           document.addEventListener('fullscreenchange', () => {
-              fullscreenBtn.textContent = document.fullscreenElement ? '通常表示に戻す' : '全画面表示';
+              if (document.fullscreenElement) {
+                  fullscreenBtn.textContent = '通常表示に戻す';
+                  container.classList.add('dense-view'); // PCで全画面になったら高密度表示
+              } else {
+                  fullscreenBtn.textContent = '全画面表示';
+                  container.classList.remove('dense-view'); // PCで通常表示に戻ったら高密度表示を解除
+              }
           });
       }
 
-      // iOS向け「ホーム画面に追加」の案内機能
       const isIos = /iPhone|iPad|iPod/i.test(navigator.userAgent);
       const iosPrompt = document.getElementById('ios-prompt');
       if (isIos && iosPrompt) {
