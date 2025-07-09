@@ -1,4 +1,4 @@
-// admin.js (最終完成版 - カメラ選択機能改善)
+// admin.js (最終完成版 - 数値処理対応)
 window.addEventListener('DOMContentLoaded', () => {
 
     if (!document.querySelector('.admin-container')) {
@@ -300,7 +300,7 @@ window.addEventListener('DOMContentLoaded', () => {
     
     async function handleRegistration() {
         const newPatientData = getCurrentFormData();
-        if (!newPatientData.patientId || !newPatientData.ticketNumber) { alert('患者IDと番号札は必須です。'); return; }
+        if (!newPatientData.patientId || isNaN(newPatientData.ticketNumber)) { alert('患者IDと正しい番号札は必須です。'); return; }
         if (newPatientData.labs.length === 0) { alert('検査室を一つ以上選択してください。'); return; }
         
         try {
@@ -316,10 +316,13 @@ window.addEventListener('DOMContentLoaded', () => {
 
     async function handleUpdate() {
         if (!editMode.active || !editMode.patientId) return;
-        const newTicketNumber = ticketNumberInput.value.trim();
+        const newTicketNumberStr = ticketNumberInput.value.trim();
         const newPatientId = patientIdInput.value.trim();
-        if (!newPatientId || !newTicketNumber) { alert('患者IDと番号札は必須です。'); return; }
         
+        if (!newPatientId || newTicketNumberStr === '') { alert('患者IDと番号札は必須です。'); return; }
+        const newTicketNumber = parseInt(newTicketNumberStr, 10);
+        if (isNaN(newTicketNumber)) { alert('番号札には有効な数値を入力してください。'); return; }
+
         try {
             const querySnapshot = await patientsCollection.where("ticketNumber", "==", newTicketNumber).get();
             const conflictingDoc = querySnapshot.docs.find(doc => doc.id !== editMode.patientId);
@@ -332,7 +335,7 @@ window.addEventListener('DOMContentLoaded', () => {
             
             const updatedData = {
                 patientId: newPatientId,
-                ticketNumber: newTicketNumber,
+                ticketNumber: newTicketNumber, // 数値として更新
                 labs: Array.from(labSelectionCards).filter(c => c.classList.contains('selected')).map(c => c.dataset.value),
                 statuses: Array.from(statusSelectionCards).filter(c => c.classList.contains('selected') || c.classList.contains('selected-urgent')).map(c => c.dataset.value),
                 specialNotes: specialNotesInput.value,
@@ -556,13 +559,11 @@ window.addEventListener('DOMContentLoaded', () => {
         });
     }
     
-    // ★★★ カメラ起動ロジックの最終完成版 ★★★
     function startCamera(context) {
         if (html5QrCode && html5QrCode.isScanning) {
             console.warn("スキャンはすでに実行中です。");
             return;
         }
-
         qrScanContext = context;
         cameraContainer.classList.add('is-visible');
 
@@ -572,7 +573,6 @@ window.addEventListener('DOMContentLoaded', () => {
                 const config = { fps: 10, qrbox: { width: 250, height: 250 } };
                 
                 let cameraId = cameras[0].id;
-                // 背面カメラがあれば優先する
                 if (cameras.length > 1) {
                     const rearCamera = cameras.find(camera => camera.label.toLowerCase().includes('back'));
                     if (rearCamera) {
@@ -599,10 +599,10 @@ window.addEventListener('DOMContentLoaded', () => {
 
     function onQrSuccess(decodedText, decodedResult) {
         stopCamera();
-        const validQrPattern = /^[0-9]{1,4}$/; 
-        if (validQrPattern.test(decodedText)) {
+        const ticketNumberValue = parseInt(decodedText, 10);
+        if (!isNaN(ticketNumberValue) && ticketNumberValue >= 0 && ticketNumberValue <= 9999) {
             if (qrScanContext === 'reception') {
-                ticketNumberInput.value = decodedText;
+                ticketNumberInput.value = ticketNumberValue;
                 updatePreview();
                 const patientId = patientIdInput.value;
                 const selectedLabs = Array.from(labSelectionCards).filter(c => c.classList.contains('selected'));
@@ -615,11 +615,11 @@ window.addEventListener('DOMContentLoaded', () => {
                     alert('先に検査室を選択してください。');
                     return;
                 }
-                const patient = registeredPatients.find(p => p.ticketNumber === decodedText && p.labs.includes(selectedLab));
+                const patient = registeredPatients.find(p => p.ticketNumber === ticketNumberValue && p.labs.includes(selectedLab));
                 if (patient) {
                    handleExamButtonClick(patient.id);
                 } else {
-                    alert(`番号札「${decodedText}」の患者は、この検査（${selectedLab}）の待機リストに見つかりませんでした。`);
+                    alert(`番号札「${ticketNumberValue}」の患者は、この検査（${selectedLab}）の待機リストに見つかりませんでした。`);
                 }
             }
         } else {
@@ -629,7 +629,6 @@ window.addEventListener('DOMContentLoaded', () => {
 
     function onQrFailure(error) { /* 読み取り中のエラーはコンソールに表示しない */ }
 
-    // ★★★ 確実にリセットするためのstopCamera関数 ★★★
     function stopCamera() {
         if (html5QrCode && html5QrCode.isScanning) {
             html5QrCode.stop()
@@ -707,6 +706,9 @@ window.addEventListener('DOMContentLoaded', () => {
     function handleTicketNumberEnter(event) { if (event.key === 'Enter') { event.preventDefault(); registerBtn.click(); } }
 
     function getCurrentFormData() {
+        const ticketNumberStr = ticketNumberInput.value.trim();
+        const ticketNumber = ticketNumberStr === '' ? NaN : parseInt(ticketNumberStr, 10);
+
         const statuses = Array.from(statusSelectionCards).filter(c => c.classList.contains('selected') || c.classList.contains('selected-urgent')).map(c => c.dataset.value);
         let order = Date.now();
         if (statuses.includes('至急対応')) {
@@ -716,7 +718,9 @@ window.addEventListener('DOMContentLoaded', () => {
         }
 
         return {
-            patientId: patientIdInput.value, ticketNumber: ticketNumberInput.value, receptionTime: firebase.firestore.FieldValue.serverTimestamp(),
+            patientId: patientIdInput.value, 
+            ticketNumber: ticketNumber, // 数値として格納
+            receptionTime: firebase.firestore.FieldValue.serverTimestamp(),
             labs: Array.from(labSelectionCards).filter(c => c.classList.contains('selected')).map(c => c.dataset.value),
             statuses: statuses,
             specialNotes: specialNotesInput.value, isAway: false, awayTime: null, isExamining: false, assignedExamRoom: null, inRoomSince: null,
@@ -727,7 +731,9 @@ window.addEventListener('DOMContentLoaded', () => {
     function updatePreview() {
         if (!previewArea) return;
         const formData = {
-            patientId: patientIdInput.value, ticketNumber: ticketNumberInput.value, receptionTime: new Date(),
+            patientId: patientIdInput.value, 
+            ticketNumber: ticketNumberInput.value, // プレビューでは入力中の文字列をそのまま表示
+            receptionTime: new Date(),
             labs: Array.from(labSelectionCards).filter(c => c.classList.contains('selected')).map(c => c.dataset.value),
             statuses: Array.from(statusSelectionCards).filter(c => c.classList.contains('selected') || c.classList.contains('selected-urgent')).map(c => c.dataset.value),
             specialNotes: specialNotesInput.value, isAway: false, awayTime: null, isExamining: false, assignedExamRoom: null, inRoomSince: null, id: 'preview'
