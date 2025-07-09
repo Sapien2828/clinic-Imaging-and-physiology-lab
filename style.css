@@ -154,7 +154,7 @@ hr { margin: 24px 0; border: 0; border-top: 1px solid var(--border-color); }
 @media (max-width: 992px) { .reception-grid, .lab-controls { grid-template-columns: 1fr; } }
 @media (max-width: 768px) { .waiting-display-grid { grid-template-columns: 1fr; } }
 
-/* ★★★ 検査関連ボタンのサイズを約1.4倍に調整 ★★★ */
+/* 検査関連ボタンのサイズ調整 */
 .card-actions .btn.exam-btn,
 .card-actions .btn.finish-exam-btn,
 .card-actions .btn.return-to-wait-btn {
@@ -162,17 +162,16 @@ hr { margin: 24px 0; border: 0; border-top: 1px solid var(--border-color); }
     font-size: 1.1rem;
     min-width: 90px;
 }
-
-/* ★★★ 「待機中に戻す」ボタンのスタイル ★★★ */
+/* 「待機中に戻す」ボタンのスタイル */
 .card-actions .btn.return-to-wait-btn {
     background-color: var(--warning-color);
     color: #000;
 }
 
-/* ★★★ display.htmlの全画面表示ボタンの位置調整 ★★★ */
+/* display.htmlの全画面表示ボタンの位置調整 */
 .display-header {
     position: relative;
-    padding-bottom: 70px; /* ボタンのスペースを確保 */
+    padding-bottom: 70px; 
 }
 #fullscreen-btn {
     position: absolute;
@@ -180,7 +179,7 @@ hr { margin: 24px 0; border: 0; border-top: 1px solid var(--border-color); }
     right: 15px;
 }
 
-/* ★★★ 全画面表示時の高密度レイアウト用スタイル ★★★ */
+/* 全画面表示時の高密度レイアウト用スタイル */
 .dense-view .waiting-display-grid {
     display: grid;
     grid-template-columns: repeat(5, 1fr);

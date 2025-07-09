@@ -109,16 +109,13 @@ window.addEventListener('DOMContentLoaded', () => {
         tabButtons.forEach(button => {
             button.addEventListener('click', (e) => {
                 const targetTabId = e.currentTarget.dataset.tab;
-
                 tabButtons.forEach(btn => btn.classList.remove('active'));
                 allTabs.forEach(tab => tab.classList.remove('active'));
-
                 e.currentTarget.classList.add('active');
                 const targetContent = document.getElementById(targetTabId);
                 if (targetContent) {
                     targetContent.classList.add('active');
                 }
-                
                 renderAll();
             });
         });
@@ -522,7 +519,7 @@ window.addEventListener('DOMContentLoaded', () => {
             const waitingPatientsForGroup = registeredPatients.filter(p => p.labs.includes(groupName) && !p.isExamining);
             const nextNumbers = waitingPatientsForGroup.slice(0, 10).map(p => `<span>${p.ticketNumber}</span>`).join('') || '-';
             const patientsForThisGroup = registeredPatients.filter(p => p.labs.includes(groupName));
-            const waitCount = patientsForThisGroup.length;
+            const waitCount = waitingPatientsForGroup.length;
             let waitTime = 0;
             if (waitCount > 0) {
                 const earliestPatient = patientsForThisGroup.reduce((earliest, current) => new Date(earliest.receptionTime) < new Date(current.receptionTime) ? earliest : current);
@@ -664,7 +661,7 @@ window.addEventListener('DOMContentLoaded', () => {
                 .then(() => { html5QrCode = null; })
                 .catch(err => {
                     console.error("カメラの停止に失敗しました。", err);
-                    html5QrCode = null;
+                    html5Qrコード = null;
                 });
         }
         if (cameraContainer) {
