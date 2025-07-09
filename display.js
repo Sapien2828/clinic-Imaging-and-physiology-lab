@@ -1,6 +1,4 @@
-// display.js (最終完成版)
 window.addEventListener('DOMContentLoaded', () => {
-
     const firebaseConfig = {
         apiKey: "AIzaSyCsk7SQQY58yKIn-q4ps1gZ2BRbc2k6flE",
         authDomain: "clinic-imaging-and-physiology.firebaseapp.com",
@@ -42,10 +40,10 @@ window.addEventListener('DOMContentLoaded', () => {
             const waitingPatientsForGroup = registeredPatients.filter(p => p.labs.includes(groupName) && !p.isExamining);
             const nextNumbers = waitingPatientsForGroup.slice(0, 10).map(p => `<span>${p.ticketNumber}</span>`).join('') || '-';
             const patientsForThisGroup = registeredPatients.filter(p => p.labs.includes(groupName));
-            const waitCount = waitingPatientsForGroup.length;
+            const waitCount = patientsForThisGroup.length;
             let waitTime = 0;
             if (waitCount > 0) {
-                const earliestPatient = waitingPatientsForGroup.reduce((earliest, current) => 
+                const earliestPatient = patientsForThisGroup.reduce((earliest, current) => 
                     new Date(earliest.receptionTime) < new Date(current.receptionTime) ? earliest : current
                 );
                 if (earliestPatient && earliestPatient.receptionTime) {
@@ -101,7 +99,7 @@ window.addEventListener('DOMContentLoaded', () => {
         }, error => {
             console.error("Firestoreからのデータ取得に失敗しました:", error);
         });
-        setInterval(renderWaitingDisplay, 60000);
+        setInterval(renderWaitingDisplay, 30000);
     }
 
     initialize();

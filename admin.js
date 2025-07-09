@@ -688,7 +688,6 @@ window.addEventListener('DOMContentLoaded', () => {
 
     function handleTicketNumberEnter(event) { if (event.key === 'Enter') { event.preventDefault(); registerBtn.click(); } }
 
-    // ★★★ 上下左右の矢印キー操作を再修正 ★★★
     function handleArrowKeyNavigation(e) {
         const activeElement = document.activeElement;
         if (!activeElement || !activeElement.classList.contains('card-button')) return;
@@ -704,8 +703,7 @@ window.addEventListener('DOMContentLoaded', () => {
 
         const cardRects = cards.map(c => c.getBoundingClientRect());
         const firstCardTop = cardRects.length > 0 ? cardRects[0].top : 0;
-        const numCols = cardRects.filter(rect => rect.top === firstCardTop).length;
-        if (numCols <= 0) return;
+        const numCols = cardRects.filter(rect => rect.top === firstCardTop).length || 1;
 
         let nextIndex = -1;
         switch (e.key) {
