@@ -1,12 +1,22 @@
 window.addEventListener('DOMContentLoaded', () => {
-    const firebaseConfig = {
-        apiKey: "AIzaSyCsk7SQQY58yKIn-q4ps1gZ2BRbc2k6flE",
-        authDomain: "clinic-imaging-and-physiology.firebaseapp.com",
-        projectId: "clinic-imaging-and-physiology",
-        storageBucket: "clinic-imaging-and-physiology.firebasestorage.app",
-        messagingSenderId: "568457688933",
-        appId: "1:568457688933:web:2eee210553b939cf39538c"
+    // ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
+    // 【重要】あなた自身のFirebase設定をここに貼り付けてください
+  const firebaseConfig = {
+
+  apiKey: "AIzaSyCsk7SQQY58yKIn-q4ps1gZ2BRbc2k6flE",
+
+  authDomain: "clinic-imaging-and-physiology.firebaseapp.com",
+
+  projectId: "clinic-imaging-and-physiology",
+
+  storageBucket: "clinic-imaging-and-physiology.firebasestorage.app",
+
+  messagingSenderId: "568457688933",
+
+  appId: "1:568457688933:web:2eee210553b939cf39538c"
+
     };
+    // ▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲
 
     firebase.initializeApp(firebaseConfig);
     const db = firebase.firestore();
@@ -43,32 +53,14 @@ window.addEventListener('DOMContentLoaded', () => {
             const waitCount = patientsForThisGroup.length;
             let waitTime = 0;
             if (waitCount > 0) {
-                const earliestPatient = patientsForThisGroup.reduce((earliest, current) => 
-                    new Date(earliest.receptionTime) < new Date(current.receptionTime) ? earliest : current
-                );
+                const earliestPatient = patientsForThisGroup.reduce((earliest, current) => new Date(earliest.receptionTime) < new Date(current.receptionTime) ? earliest : current);
                 if (earliestPatient && earliestPatient.receptionTime) {
-                   waitTime = Math.round((new Date() - earliestPatient.receptionTime) / (1000 * 60));
+                    waitTime = Math.round((new Date() - new Date(earliestPatient.receptionTime)) / (1000 * 60));
                 }
             }
-            
             const roomNameShort = groupName.split('(')[0];
             let noteHtml = specialNoteRooms.includes(roomName) ? `<p class="room-note">${specialNoteText}</p>` : '';
-            
-            const cardHtml = `<div class="waiting-room-card" data-room-name="${roomName}">
-                <h3 class="waiting-room-name">${roomName}</h3>
-                <div class="waiting-info">
-                    <p>待ち: <span class="wait-count">${waitCount}</span>人 / 推定: <span class="wait-time">約${waitTime}</span>分</p>
-                </div>
-                <div class="now-serving">
-                    <h4>検査中</h4>
-                    <p class="now-serving-number">${nowServingNumber}</p>
-                </div>
-                <div class="next-in-line">
-                    <h4>${roomNameShort}の次の方</h4>
-                    <p class="next-numbers">${nextNumbers}</p>
-                </div>
-                ${noteHtml}
-            </div>`;
+            const cardHtml = `<div class="waiting-room-card" data-room-name="${roomName}"><h3 class="waiting-room-name">${roomName}</h3><div class="waiting-info"><p>待ち: <span class="wait-count">${waitCount}</span>人 / 推定: <span class="wait-time">約${waitTime}</span>分</p></div><div class="now-serving"><h4>検査中</h4><p class="now-serving-number">${nowServingNumber}</p></div><div class="next-in-line"><h4>${roomNameShort}の次の方</h4><p class="next-numbers">${nextNumbers}</p></div>${noteHtml}</div>`;
             waitingDisplayGrid.insertAdjacentHTML('beforeend', cardHtml);
         });
 
@@ -90,7 +82,7 @@ window.addEventListener('DOMContentLoaded', () => {
                 return {
                     id: doc.id,
                     ...data,
-                    receptionTime: data.receptionTime ? data.receptionTime.toDate() : new Date(),
+                    receptionTime: data.receptionTime.toDate(),
                     awayTime: data.awayTime ? data.awayTime.toDate() : null,
                     inRoomSince: data.inRoomSince ? data.inRoomSince.toDate() : null,
                 };
@@ -99,7 +91,29 @@ window.addEventListener('DOMContentLoaded', () => {
         }, error => {
             console.error("Firestoreからのデータ取得に失敗しました:", error);
         });
-        setInterval(renderWaitingDisplay, 30000);
+        setInterval(renderWaitingDisplay, 15000);
+
+        // ★★★ 全画面表示ボタンの機能を追加 ★★★
+        const fullscreenBtn = document.getElementById('fullscreen-btn');
+        if(fullscreenBtn) {
+            fullscreenBtn.addEventListener('click', () => {
+                if (!document.fullscreenElement) {
+                    document.documentElement.requestFullscreen().catch(err => {
+                        alert(`全画面表示にできませんでした: ${err.message}`);
+                    });
+                } else {
+                    document.exitFullscreen();
+                }
+            });
+
+            document.addEventListener('fullscreenchange', () => {
+                if (document.fullscreenElement) {
+                    fullscreenBtn.textContent = '通常表示に戻す';
+                } else {
+                    fullscreenBtn.textContent = '全画面表示';
+                }
+            });
+        }
     }
 
     initialize();
