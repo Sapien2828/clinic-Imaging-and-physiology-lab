@@ -1,5 +1,4 @@
 window.addEventListener('DOMContentLoaded', () => {
-  // Firebase設定部分は変更なし
   const firebaseConfig = {
     apiKey: "AIzaSyCsk7SQQY58yKIn-q4ps1gZ2BRbc2k6flE",
     authDomain: "clinic-imaging-and-physiology.firebaseapp.com",
@@ -84,44 +83,24 @@ window.addEventListener('DOMContentLoaded', () => {
       });
       setInterval(renderWaitingDisplay, 15000);
 
+      // ★★★ 全画面表示ボタンの機能をシンプル化 ★★★
       const fullscreenBtn = document.getElementById('fullscreen-btn');
-      const container = document.querySelector('.display-page-container');
-
-      if(fullscreenBtn && container) {
+      if(fullscreenBtn) {
           fullscreenBtn.addEventListener('click', () => {
               if (!document.fullscreenElement) {
-                  document.documentElement.requestFullscreen()
-                    .then(() => {
-                        // 全画面表示に成功したら、画面を横向きにしようと試みる
-                        try {
-                            screen.orientation.lock('landscape').catch(err => console.warn("画面の横向きロックに失敗しました:", err));
-                        } catch (e) {
-                            console.warn("Screen Orientation APIはサポートされていません。");
-                        }
-                    })
-                    .catch(err => {
-                        alert(`全画面表示にできませんでした: ${err.message}`);
-                    });
+                  document.documentElement.requestFullscreen().catch(err => {
+                      alert(`全画面表示にできませんでした: ${err.message}`);
+                  });
               } else {
-                  // 全画面表示を終了し、画面の向きのロックを解除する
                   document.exitFullscreen();
-                  if (screen.orientation && screen.orientation.unlock) {
-                      screen.orientation.unlock();
-                  }
               }
           });
 
           document.addEventListener('fullscreenchange', () => {
               if (document.fullscreenElement) {
                   fullscreenBtn.textContent = '通常表示に戻す';
-                  container.classList.add('dense-view');
               } else {
                   fullscreenBtn.textContent = '全画面表示';
-                  container.classList.remove('dense-view');
-                   // ユーザーがEscキーなどで終了した場合も、画面の向きのロックを解除
-                  if (screen.orientation && screen.orientation.unlock) {
-                      screen.orientation.unlock();
-                  }
               }
           });
       }

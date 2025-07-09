@@ -179,46 +179,47 @@ hr { margin: 24px 0; border: 0; border-top: 1px solid var(--border-color); }
     right: 15px;
 }
 
-/* ★★★ 全画面表示時の高密度レイアウト用スタイルを修正 ★★★ */
-.dense-view .waiting-display-grid {
-    display: grid;
-    grid-template-columns: repeat(5, 1fr);
-    /* 画面の高さからヘッダーと隙間を引いた高さを3行で分割 */
-    grid-auto-rows: calc((100vh - 180px - 10px) / 3);
-    gap: 5px;
-}
-.dense-view .waiting-room-card {
-    padding: 1vh; /* 画面の高さに応じた余白 */
-    border-top-width: 4px;
-    display: flex;
-    flex-direction: column;
-    justify-content: space-between;
-}
-.dense-view .waiting-room-name {
-    font-size: 2.2vh; /* 画面の高さに連動 */
-    margin-bottom: 0.5vh;
-    line-height: 1.1;
-    font-weight: 700;
-}
-.dense-view .waiting-info p {
-    font-size: 1.8vh; /* 画面の高さに連動 */
-    margin: 0 0 1vh 0;
-}
-.dense-view .now-serving h4 {
-    font-size: 1.8vh;
-    margin-bottom: 0.5vh;
-    padding-bottom: 0.5vh;
-}
-.dense-view .now-serving-number {
-    font-size: 5vh; /* 画面の高さに連動 */
-    flex-grow: 1;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    margin: 0;
-    min-height: 0;
-}
-.dense-view .next-in-line,
-.dense-view .room-note {
-    display: none;
+/* ★★★ スマートフォンなどを横向きにした時の高密度表示スタイル ★★★ */
+@media (orientation: landscape) and (max-height: 600px) {
+    .display-page-container .waiting-display-grid {
+        display: grid;
+        grid-template-columns: repeat(5, 1fr);
+        grid-auto-rows: calc((100vh - 180px - 10px) / 3);
+        gap: 5px;
+    }
+    .display-page-container .waiting-room-card {
+        padding: 1vh;
+        border-top-width: 4px;
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+    }
+    .display-page-container .waiting-room-name {
+        font-size: 2vh;
+        margin-bottom: 0.5vh;
+        line-height: 1.1;
+        font-weight: 700;
+    }
+    .display-page-container .waiting-info p {
+        font-size: 1.5vh;
+        margin: 0 0 1vh 0;
+    }
+    .display-page-container .now-serving h4 {
+        font-size: 1.6vh;
+        margin-bottom: 0.5vh;
+        padding-bottom: 0.5vh;
+    }
+    .display-page-container .now-serving-number {
+        font-size: 4.5vh;
+        flex-grow: 1;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin: 0;
+        min-height: 0;
+    }
+    .display-page-container .next-in-line,
+    .display-page-container .room-note {
+        display: none;
+    }
 }
