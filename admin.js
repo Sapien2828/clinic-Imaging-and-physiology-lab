@@ -1,4 +1,4 @@
-// admin.js (キーボード操作改善版)
+// admin.js (最終検査終了時にリストから削除する修正版)
 window.addEventListener('DOMContentLoaded', () => {
 
     if (!document.querySelector('.admin-container')) {
@@ -105,7 +105,6 @@ window.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // ★★★ キーボードナビゲーションのイベントリスナー設定を改善 ★★★
     function setupEventListeners() {
         tabButtons.forEach(button => { button.addEventListener('click', (e) => {
             const targetTabId = e.currentTarget.dataset.tab;
@@ -163,11 +162,10 @@ window.addEventListener('DOMContentLoaded', () => {
         setupListEventListeners(registeredListContainer);
         setupListEventListeners(labWaitingListContainer);
 
-        // スペースキーとエンターキーでカードを選択する機能
         allReceptionCards.forEach(card => {
             card.addEventListener('keydown', (e) => { 
                 if (e.key === ' ' || e.key === 'Enter') { 
-                    e.preventDefault(); // デフォルトの動作（スクロールなど）を防ぐ
+                    e.preventDefault();
                     toggleCardSelection(card); 
                 } 
             });
@@ -183,7 +181,6 @@ window.addEventListener('DOMContentLoaded', () => {
         if (labRoomSelect) { labRoomSelect.addEventListener('change', renderLabWaitingList); }
         if (resetAllBtn) { resetAllBtn.addEventListener('click', () => handleResetAll(false)); }
         
-        // 受付タブ全体でキーボードナビゲーションを処理
         if (receptionTab) { receptionTab.addEventListener('keydown', handleArrowKeyNavigation); }
     }
     
@@ -237,26 +234,32 @@ window.addEventListener('DOMContentLoaded', () => {
         }
     }
     
+    // ★★★ 最後の検査が終了したらリストから削除するよう修正 ★★★
     async function handleFinishExamButtonClick(patientId) {
         try {
             const patientRef = patientsCollection.doc(patientId);
             const doc = await patientRef.get();
             if (!doc.exists) return;
             const selectedPatient = {id: doc.id, ...doc.data()};
+            
             const finishedRoom = selectedPatient.assignedExamRoom;
             const finishedGroup = Object.keys(roomConfiguration).find(key => roomConfiguration[key]?.includes(finishedRoom)) || finishedRoom;
             const remainingLabs = selectedPatient.labs.filter(lab => lab !== finishedGroup);
-            await patientRef.update({
-                isExamining: false,
-                assignedExamRoom: null,
-                inRoomSince: null,
-                labs: remainingLabs
-            });
+
             if (remainingLabs.length > 0) {
+                // まだ検査が残っている場合は、データを更新
+                await patientRef.update({
+                    isExamining: false,
+                    assignedExamRoom: null,
+                    inRoomSince: null,
+                    labs: remainingLabs
+                });
                 const bodyHtml = `<p><strong>${finishedRoom}</strong> での検査は終了しました。</p><p>この患者にはまだ次の検査が残っています:<br><strong>${remainingLabs.join(', ')}</strong></p>`;
                 showModal('次の検査があります', bodyHtml, closeModal, false);
             } else {
-                showModal('全検査完了', `<p>番号: <strong>${selectedPatient.ticketNumber}</strong> の全検査が完了しました。</p>`, closeModal, false);
+                // これが最後の検査なら、データを削除
+                await patientRef.delete();
+                showModal('全検査完了', `<p>番号: <strong>${selectedPatient.ticketNumber}</strong> の全検査が完了しました。<br>受付リストから削除されます。</p>`, closeModal, false);
             }
         } catch (error) {
             console.error("検査終了処理に失敗: ", error);
@@ -688,7 +691,6 @@ window.addEventListener('DOMContentLoaded', () => {
 
     function handleTicketNumberEnter(event) { if (event.key === 'Enter') { event.preventDefault(); registerBtn.click(); } }
 
-    // ★★★ 改善されたキーボードナビゲーション ★★★
     function handleArrowKeyNavigation(e) {
         const focusableCards = Array.from(receptionTab.querySelectorAll('.selectable-cards .card-button'));
         const activeElement = document.activeElement;
@@ -706,14 +708,11 @@ window.addEventListener('DOMContentLoaded', () => {
         } else if (e.key === 'ArrowLeft' && currentIndex > 0) {
             nextIndex = currentIndex - 1;
         }
-        // シンプルな左右移動のみに限定。上下は環境によって挙動が複雑なため。
-        // 必要であれば、グリッド計算を追加することも可能。
-
+        
         if (nextIndex !== currentIndex) {
             focusableCards[nextIndex].focus();
         }
     }
-
 
     function getCurrentFormData() {
         const ticketNumberStr = ticketNumberInput.value.trim();
