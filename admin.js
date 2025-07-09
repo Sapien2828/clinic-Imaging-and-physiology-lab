@@ -1,4 +1,4 @@
-// admin.js (タブ表示、入力制限、キーボード操作を再修正した最終版)
+// admin.js (全ての機能を再検証・修正した最終版)
 window.addEventListener('DOMContentLoaded', () => {
 
     if (!document.querySelector('.admin-container')) {
@@ -105,17 +105,15 @@ window.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // ★★★ タブ切り替え、キーボード操作、入力制限のイベントリスナーを再確認・修正 ★★★
     function setupEventListeners() {
+        // ★★★ タブ表示ロジックを修正 ★★★
         tabButtons.forEach(button => {
             button.addEventListener('click', (e) => {
                 const targetTabId = e.currentTarget.dataset.tab;
 
-                // いったん全て非アクティブにする
                 tabButtons.forEach(btn => btn.classList.remove('active'));
                 allTabs.forEach(tab => tab.classList.remove('active'));
 
-                // クリックされたものだけをアクティブにする
                 e.currentTarget.classList.add('active');
                 const targetContent = document.getElementById(targetTabId);
                 if (targetContent) {
@@ -510,8 +508,44 @@ window.addEventListener('DOMContentLoaded', () => {
         labWaitingListContainer.appendChild(fragment);
     }
 
+    // ★★★ 患者待合画面タブの表示ロジックを修正・復元 ★★★
     function renderWaitingDisplay() {
-        // (この関数は変更なし)
+        if (!waitingDisplayGrid) return;
+        const beforeState = new Map();
+        waitingDisplayGrid.querySelectorAll('.waiting-room-card').forEach(card => {
+            beforeState.set(card.dataset.roomName, card.querySelector('.now-serving-number').textContent);
+        });
+        waitingDisplayGrid.innerHTML = '';
+        const specialNoteText = '案内票に記載された予約時間を基準にご案内します。必ずしも受付番号順ではありません。また、検査の依頼内容に応じて順番が前後することがあります。あらかじめご了承証ください。';
+        waitingRoomOrder.forEach(roomName => {
+            const nowServingPatient = registeredPatients.find(p => p.isExamining && p.assignedExamRoom === roomName);
+            const nowServingNumber = nowServingPatient ? nowServingPatient.ticketNumber : '-';
+            const groupName = Object.keys(roomConfiguration).find(key => roomConfiguration[key]?.includes(roomName)) || roomName;
+            const waitingPatientsForGroup = registeredPatients.filter(p => p.labs.includes(groupName) && !p.isExamining);
+            const nextNumbers = waitingPatientsForGroup.slice(0, 10).map(p => `<span>${p.ticketNumber}</span>`).join('') || '-';
+            const patientsForThisGroup = registeredPatients.filter(p => p.labs.includes(groupName));
+            const waitCount = patientsForThisGroup.length;
+            let waitTime = 0;
+            if (waitCount > 0) {
+                const earliestPatient = patientsForThisGroup.reduce((earliest, current) => new Date(earliest.receptionTime) < new Date(current.receptionTime) ? earliest : current);
+                if (earliestPatient && earliestPatient.receptionTime) {
+                    waitTime = Math.round((new Date() - earliestPatient.receptionTime) / (1000 * 60));
+                }
+            }
+            const roomNameShort = groupName.split('(')[0];
+            let noteHtml = specialNoteRooms.includes(roomName) ? `<p class="room-note">${specialNoteText}</p>` : '';
+            const cardHtml = `<div class="waiting-room-card" data-room-name="${roomName}"><h3 class="waiting-room-name">${roomName}</h3><div class="waiting-info"><p>待ち: <span class="wait-count">${waitCount}</span>人 / 推定: <span class="wait-time">約${waitTime}</span>分</p></div><div class="now-serving"><h4>検査中</h4><p class="now-serving-number">${nowServingNumber}</p></div><div class="next-in-line"><h4>${roomNameShort}の次の方</h4><p class="next-numbers">${nextNumbers}</p></div>${noteHtml}</div>`;
+            waitingDisplayGrid.insertAdjacentHTML('beforeend', cardHtml);
+        });
+        waitingDisplayGrid.querySelectorAll('.waiting-room-card').forEach(card => {
+            const roomName = card.dataset.roomName;
+            const oldNumber = beforeState.get(roomName);
+            const newNumber = card.querySelector('.now-serving-number').textContent;
+            if (newNumber !== '-' && newNumber !== oldNumber) {
+                card.classList.add('newly-called');
+                setTimeout(() => { card.classList.remove('newly-called'); }, 10000);
+            }
+        });
     }
 
     function renderPatientCardHTML(patientData, viewType) {
