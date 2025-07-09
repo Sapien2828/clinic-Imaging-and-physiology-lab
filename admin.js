@@ -1,4 +1,4 @@
-// admin.js (最終完成版)
+// admin.js (最終完成版 - カメラ選択機能改善)
 window.addEventListener('DOMContentLoaded', () => {
 
     if (!document.querySelector('.admin-container')) {
@@ -556,9 +556,8 @@ window.addEventListener('DOMContentLoaded', () => {
         });
     }
     
-    // ★★★★★ カメラ起動の最終修正版 ★★★★★
+    // ★★★ カメラ起動ロジックの最終完成版 ★★★
     function startCamera(context) {
-        // 既にスキャン中の場合は何もしない
         if (html5QrCode && html5QrCode.isScanning) {
             console.warn("スキャンはすでに実行中です。");
             return;
@@ -567,32 +566,32 @@ window.addEventListener('DOMContentLoaded', () => {
         qrScanContext = context;
         cameraContainer.classList.add('is-visible');
 
-        // デバイスのカメラへのアクセス許可を取得し、利用可能なカメラをリストアップする
         Html5Qrcode.getCameras().then(cameras => {
             if (cameras && cameras.length) {
-                // インスタンスがなければ生成
-                if (!html5QrCode) {
-                    html5QrCode = new Html5Qrcode("qr-reader", /* verbose= */ false);
-                }
-                
-                // カメラリストの最初のカメラを使用する（多くの場合、これがメインの背面カメラ）
-                const cameraId = cameras[0].id;
+                html5QrCode = new Html5Qrcode("qr-reader");
                 const config = { fps: 10, qrbox: { width: 250, height: 250 } };
+                
+                let cameraId = cameras[0].id;
+                // 背面カメラがあれば優先する
+                if (cameras.length > 1) {
+                    const rearCamera = cameras.find(camera => camera.label.toLowerCase().includes('back'));
+                    if (rearCamera) {
+                        cameraId = rearCamera.id;
+                    }
+                }
                 
                 html5QrCode.start(cameraId, config, onQrSuccess, onQrFailure)
                     .catch(err => {
-                        console.error("指定されたカメラでの起動に失敗:", err);
+                        console.error("カメラ起動に失敗:", err);
                         alert("カメラの起動に失敗しました。");
                         stopCamera();
                     });
 
             } else {
-                console.error("利用可能なカメラが見つかりません。");
                 alert("利用可能なカメラが見つかりません。");
                 cameraContainer.classList.remove('is-visible');
             }
         }).catch(err => {
-            console.error("カメラのアクセス許可取得に失敗:", err);
             alert("カメラへのアクセス許可が必要です。ブラウザの設定を確認してください。");
             cameraContainer.classList.remove('is-visible');
         });
@@ -630,21 +629,18 @@ window.addEventListener('DOMContentLoaded', () => {
 
     function onQrFailure(error) { /* 読み取り中のエラーはコンソールに表示しない */ }
 
-    // ★★★ 修正の中心：stopCamera関数を改善 ★★★
+    // ★★★ 確実にリセットするためのstopCamera関数 ★★★
     function stopCamera() {
         if (html5QrCode && html5QrCode.isScanning) {
             html5QrCode.stop()
                 .then(() => {
-                    // 完全にリセットするため、インスタンスを破棄する
                     html5QrCode = null;
                 })
                 .catch(err => {
                     console.error("カメラの停止に失敗しました。", err);
-                    // エラーが発生しても、インスタンスを強制的に破棄する
                     html5QrCode = null;
                 });
         }
-        // 状態に関わらずコンテナを隠す
         if (cameraContainer) {
             cameraContainer.classList.remove('is-visible');
         }
