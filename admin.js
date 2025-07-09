@@ -1,4 +1,4 @@
-// admin.js (入力制限とキーボード操作を再修正した最終版)
+// admin.js (タブ表示、入力制限、キーボード操作を再修正した最終版)
 window.addEventListener('DOMContentLoaded', () => {
 
     if (!document.querySelector('.admin-container')) {
@@ -105,14 +105,26 @@ window.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+    // ★★★ タブ切り替え、キーボード操作、入力制限のイベントリスナーを再確認・修正 ★★★
     function setupEventListeners() {
-        tabButtons.forEach(button => { button.addEventListener('click', (e) => {
-            const targetTabId = e.currentTarget.dataset.tab;
-            tabButtons.forEach(btn => btn.classList.remove('active'));
-            e.currentTarget.classList.add('active');
-            allTabs.forEach(tab => { if(tab) tab.id === targetTabId ? tab.classList.add('active') : tab.classList.remove('active'); });
-            renderAll();
-        }); });
+        tabButtons.forEach(button => {
+            button.addEventListener('click', (e) => {
+                const targetTabId = e.currentTarget.dataset.tab;
+
+                // いったん全て非アクティブにする
+                tabButtons.forEach(btn => btn.classList.remove('active'));
+                allTabs.forEach(tab => tab.classList.remove('active'));
+
+                // クリックされたものだけをアクティブにする
+                e.currentTarget.classList.add('active');
+                const targetContent = document.getElementById(targetTabId);
+                if (targetContent) {
+                    targetContent.classList.add('active');
+                }
+                
+                renderAll();
+            });
+        });
         
         if (registerBtn) { registerBtn.addEventListener('click', () => { if (editMode.active) handleUpdate(); else handleRegistration(); }); }
         
