@@ -45,22 +45,11 @@ hr { margin: 24px 0; border: 0; border-top: 1px solid var(--border-color); }
     padding-bottom: 20px;
     margin-bottom: 20px;
 }
-.header-text-group {
-    text-align: left;
-}
+.header-text-group { text-align: left; }
 .header-text-group h2,
-.header-text-group p {
-    margin: 0;
-}
-.header-text-group h2 {
-    border-bottom: none;
-    padding-bottom: 0;
-    margin-bottom: 5px;
-}
-.header-button-group {
-    flex-shrink: 0;
-    margin-left: 20px;
-}
+.header-text-group p { margin: 0; }
+.header-text-group h2 { border-bottom: none; padding-bottom: 0; margin-bottom: 5px; }
+.header-button-group { flex-shrink: 0; margin-left: 20px; }
 
 /* ========== 管理者画面のタブUIスタイル ========== */
 .tab-buttons { display: flex; border-bottom: 2px solid var(--border-color); }
@@ -208,26 +197,38 @@ hr { margin: 24px 0; border: 0; border-top: 1px solid var(--border-color); }
 .ios-prompt-container p { margin: 0; line-height: 1.5; }
 .ios-prompt-container svg { width: 1em; height: 1em; vertical-align: -0.15em; }
 
-/* ★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★ */
-/* ★★★ ここからが高密度表示用のスタイル ★★★ */
-/* ★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★ */
+/* ★★★ PCの全画面表示ボタンで適用される高密度スタイル ★★★ */
+.dense-view .waiting-display-grid {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    grid-auto-rows: calc((100vh - 40px) / 3); /* ヘッダーが隠れるため高さを調整 */
+    gap: 5px;
+}
+.dense-view .display-header {
+    display: none; /* 全画面時はヘッダーを隠す */
+}
+.dense-view .waiting-room-card {
+    padding: 1vh; border-top-width: 4px; display: flex; flex-direction: column; justify-content: space-between;
+}
+.dense-view .waiting-room-name { font-size: 2vh; margin-bottom: 0.5vh; line-height: 1.1; font-weight: 700; }
+.dense-view .waiting-info p { font-size: 1.5vh; margin: 0 0 1vh 0; }
+.dense-view .now-serving h4 { font-size: 1.6vh; margin-bottom: 0.5vh; padding-bottom: 0.5vh; }
+.dense-view .now-serving-number { font-size: 4.5vh; flex-grow: 1; display: flex; align-items: center; justify-content: center; margin: 0; min-height: 0; }
+.dense-view .next-in-line, .dense-view .room-note { display: none; }
 
-/* PCの全画面表示ボタン、またはスマホの横向きで適用される */
-.dense-view .waiting-display-grid,
+/* ★★★ スマートフォンなどを横向きにした時の高密度表示スタイル ★★★ */
 @media (orientation: landscape) and (max-height: 600px) {
     .display-page-container .waiting-display-grid {
-        display: grid;
         grid-template-columns: repeat(5, 1fr);
-        grid-auto-rows: calc((100vh - 40px) / 3);
+        grid-auto-rows: calc((100vh - 20px) / 3);
         gap: 5px;
     }
-    .display-page-container .display-header { display: none; }
+    .display-page-container .display-header,
+    .display-page-container .ios-prompt-container {
+        display: none; 
+    }
     .display-page-container .waiting-room-card {
-        padding: 1vh;
-        border-top-width: 4px;
-        display: flex;
-        flex-direction: column;
-        justify-content: space-between;
+        padding: 1vh; border-top-width: 4px; display: flex; flex-direction: column; justify-content: space-between;
     }
     .display-page-container .waiting-room-name { font-size: 2vh; margin-bottom: 0.5vh; line-height: 1.1; font-weight: 700; }
     .display-page-container .waiting-info p { font-size: 1.5vh; margin: 0 0 1vh 0; }

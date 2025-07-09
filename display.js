@@ -97,14 +97,13 @@ window.addEventListener('DOMContentLoaded', () => {
               }
           });
 
-          // 全画面表示の状態が変更されたら、高密度表示クラスを切り替える
           document.addEventListener('fullscreenchange', () => {
               if (document.fullscreenElement) {
                   fullscreenBtn.textContent = '通常表示に戻す';
-                  container.classList.add('dense-view'); // PCで全画面になったら高密度表示
+                  container.classList.add('dense-view');
               } else {
                   fullscreenBtn.textContent = '全画面表示';
-                  container.classList.remove('dense-view'); // PCで通常表示に戻ったら高密度表示を解除
+                  container.classList.remove('dense-view');
               }
           });
       }
