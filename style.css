@@ -141,10 +141,17 @@ hr { margin: 24px 0; border: 0; border-top: 1px solid var(--border-color); }
 @media (max-width: 992px) { .reception-grid, .lab-controls { grid-template-columns: 1fr; } }
 @media (max-width: 768px) { .waiting-display-grid { grid-template-columns: 1fr; } }
 
-/* ★★★ 検査・検査終了ボタンのサイズを大きくする修正 ★★★ */
+/* ★★★ 検査・検査終了・待機に戻すボタンのサイズを約1.4倍に調整 ★★★ */
 .card-actions .btn.exam-btn,
-.card-actions .btn.finish-exam-btn {
-    padding: 10px 15px;
-    font-size: 1rem;
-    min-width: 80px;
+.card-actions .btn.finish-exam-btn,
+.card-actions .btn.return-to-wait-btn {
+    padding: 7px 14px;
+    font-size: 1.1rem;
+    min-width: 90px;
+}
+
+/* ★★★ 「待機中に戻す」ボタンのスタイル ★★★ */
+.card-actions .btn.return-to-wait-btn {
+    background-color: #ffc107; /* 警告色（黄色） */
+    color: #000;
 }
