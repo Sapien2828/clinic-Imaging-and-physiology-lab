@@ -45,7 +45,7 @@ window.addEventListener('DOMContentLoaded', () => {
           if (waitCount > 0) {
               const earliestPatient = patientsForThisGroup.reduce((earliest, current) => new Date(earliest.receptionTime) < new Date(current.receptionTime) ? earliest : current);
               if (earliestPatient && earliestPatient.receptionTime) {
-                  waitTime = Math.round((new Date() - new Date(earliestPatient.receptionTime)) / (1000 * 60));
+                  waitTime = Math.round((new Date() - earliestPatient.receptionTime) / (1000 * 60));
               }
           }
           const roomNameShort = groupName.split('(')[0];
