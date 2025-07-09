@@ -140,3 +140,11 @@ hr { margin: 24px 0; border: 0; border-top: 1px solid var(--border-color); }
 /* ========== スマートフォン向けレスポンシブ対応 ========== */
 @media (max-width: 992px) { .reception-grid, .lab-controls { grid-template-columns: 1fr; } }
 @media (max-width: 768px) { .waiting-display-grid { grid-template-columns: 1fr; } }
+
+/* ★★★ 検査・検査終了ボタンのサイズを大きくする修正 ★★★ */
+.card-actions .btn.exam-btn,
+.card-actions .btn.finish-exam-btn {
+    padding: 10px 15px;
+    font-size: 1rem;
+    min-width: 80px;
+}
