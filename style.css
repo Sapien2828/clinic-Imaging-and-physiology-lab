@@ -35,7 +35,32 @@ hr { margin: 24px 0; border: 0; border-top: 1px solid var(--border-color); }
 
 /* ========== 管理者画面・待合画面 共通スタイル ========== */
 .admin-container, .display-page-container { width: 100%; max-width: 1200px; margin: 20px auto; padding: 0 15px; box-sizing: border-box; }
-.display-header { text-align: center; }
+
+/* ★★★ ヘッダーのレイアウトをFlexboxに修正 ★★★ */
+.display-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 2px solid var(--border-color);
+    padding-bottom: 20px;
+    margin-bottom: 20px;
+}
+.header-text-group {
+    text-align: left;
+}
+.header-text-group h2,
+.header-text-group p {
+    margin: 0;
+}
+.header-text-group h2 {
+    border-bottom: none; /* 下線を削除 */
+    padding-bottom: 0;
+    margin-bottom: 5px; /* 説明文との余白 */
+}
+.header-button-group {
+    flex-shrink: 0; /* ボタンが縮まないようにする */
+    margin-left: 20px;
+}
 
 /* ========== 管理者画面のタブUIスタイル ========== */
 .tab-buttons { display: flex; border-bottom: 2px solid var(--border-color); }
@@ -45,7 +70,7 @@ hr { margin: 24px 0; border: 0; border-top: 1px solid var(--border-color); }
 .tab-contents { padding: 20px; background-color: white; border: 1px solid var(--border-color); border-top: none; border-radius: 0 0 var(--border-radius) var(--border-radius); }
 .tab-content { display: none; }
 .tab-content.active { display: block; }
-.tab-content h2, .display-header h2 { text-align: left; margin-top: 0; border-bottom: 2px solid var(--border-color); padding-bottom: 15px; margin-bottom: 20px; }
+.tab-content h2 { text-align: left; margin-top: 0; border-bottom: 2px solid var(--border-color); padding-bottom: 15px; margin-bottom: 20px; }
 .tab-content h3 { font-size: 1.1rem; margin-top: 1.5rem; margin-bottom: 1rem; }
 
 /* ========== 受付画面 & 検査室画面共通のスタイル ========== */
@@ -169,18 +194,6 @@ hr { margin: 24px 0; border: 0; border-top: 1px solid var(--border-color); }
     color: #000;
 }
 
-/* display.htmlのヘッダースタイル */
-.display-header {
-    position: relative;
-    padding-bottom: 20px; 
-}
-#fullscreen-btn {
-    position: absolute;
-    bottom: -15px; /* ヘッダーの下に配置 */
-    left: 50%;
-    transform: translateX(-50%);
-}
-
 /* iOS向け案内のスタイル */
 .ios-prompt-container {
     display: none;
@@ -195,8 +208,7 @@ hr { margin: 24px 0; border: 0; border-top: 1px solid var(--border-color); }
 .ios-prompt-container p { margin: 0; line-height: 1.5; }
 .ios-prompt-container svg { width: 1em; height: 1em; vertical-align: -0.15em; }
 
-/* ★★★ 高密度表示モードの定義 ★★★ */
-/* PCの全画面表示ボタン、またはスマホの横向きで適用される */
+/* PC全画面表示、またはスマホ横向きの時の高密度表示スタイル */
 .dense-view .waiting-display-grid,
 @media (orientation: landscape) and (max-height: 600px) {
     .display-page-container .waiting-display-grid {
