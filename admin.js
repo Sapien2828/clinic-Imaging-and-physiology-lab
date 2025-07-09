@@ -109,13 +109,16 @@ window.addEventListener('DOMContentLoaded', () => {
         tabButtons.forEach(button => {
             button.addEventListener('click', (e) => {
                 const targetTabId = e.currentTarget.dataset.tab;
+
                 tabButtons.forEach(btn => btn.classList.remove('active'));
                 allTabs.forEach(tab => tab.classList.remove('active'));
+
                 e.currentTarget.classList.add('active');
                 const targetContent = document.getElementById(targetTabId);
                 if (targetContent) {
                     targetContent.classList.add('active');
                 }
+                
                 renderAll();
             });
         });
@@ -504,7 +507,6 @@ window.addEventListener('DOMContentLoaded', () => {
         labWaitingListContainer.appendChild(fragment);
     }
 
-    // ★★★ 患者待合画面タブの表示ロジックを修正・復元 ★★★
     function renderWaitingDisplay() {
         if (!waitingDisplayGrid) return;
         const beforeState = new Map();
