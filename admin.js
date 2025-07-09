@@ -1,24 +1,17 @@
-// admin.js (最終完成版 - iOS背面カメラ対応)
+// admin.js (キーボード操作改善版)
 window.addEventListener('DOMContentLoaded', () => {
 
     if (!document.querySelector('.admin-container')) {
         return;
     }
     
-  const firebaseConfig = {
-
-  apiKey: "AIzaSyCsk7SQQY58yKIn-q4ps1gZ2BRbc2k6flE",
-
-  authDomain: "clinic-imaging-and-physiology.firebaseapp.com",
-
-  projectId: "clinic-imaging-and-physiology",
-
-  storageBucket: "clinic-imaging-and-physiology.firebasestorage.app",
-
-  messagingSenderId: "568457688933",
-
-  appId: "1:568457688933:web:2eee210553b939cf39538c"
-
+    const firebaseConfig = {
+        apiKey: "AIzaSyCsk7SQQY58yKIn-q4ps1gZ2BRbc2k6flE",
+        authDomain: "clinic-imaging-and-physiology.firebaseapp.com",
+        projectId: "clinic-imaging-and-physiology",
+        storageBucket: "clinic-imaging-and-physiology.firebasestorage.app",
+        messagingSenderId: "568457688933",
+        appId: "1:568457688933:web:2eee210553b939cf39538c"
     };
 
     firebase.initializeApp(firebaseConfig);
@@ -112,6 +105,7 @@ window.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+    // ★★★ キーボードナビゲーションのイベントリスナー設定を改善 ★★★
     function setupEventListeners() {
         tabButtons.forEach(button => { button.addEventListener('click', (e) => {
             const targetTabId = e.currentTarget.dataset.tab;
@@ -169,10 +163,17 @@ window.addEventListener('DOMContentLoaded', () => {
         setupListEventListeners(registeredListContainer);
         setupListEventListeners(labWaitingListContainer);
 
+        // スペースキーとエンターキーでカードを選択する機能
         allReceptionCards.forEach(card => {
+            card.addEventListener('keydown', (e) => { 
+                if (e.key === ' ' || e.key === 'Enter') { 
+                    e.preventDefault(); // デフォルトの動作（スクロールなど）を防ぐ
+                    toggleCardSelection(card); 
+                } 
+            });
             card.addEventListener('click', () => toggleCardSelection(card));
-            card.addEventListener('keydown', (e) => { if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); toggleCardSelection(card); } });
         });
+
         if (patientIdInput) { patientIdInput.addEventListener('input', handlePatientIdInput); patientIdInput.addEventListener('blur', handlePatientIdBlur); }
         if (ticketNumberInput) { ticketNumberInput.addEventListener('input', handleNumericInput); ticketNumberInput.addEventListener('keydown', handleTicketNumberEnter); }
         if (specialNotesInput) { specialNotesInput.addEventListener('input', updatePreview); }
@@ -181,6 +182,9 @@ window.addEventListener('DOMContentLoaded', () => {
         if (stopCameraBtn) { stopCameraBtn.addEventListener('click', stopCamera); }
         if (labRoomSelect) { labRoomSelect.addEventListener('change', renderLabWaitingList); }
         if (resetAllBtn) { resetAllBtn.addEventListener('click', () => handleResetAll(false)); }
+        
+        // 受付タブ全体でキーボードナビゲーションを処理
+        if (receptionTab) { receptionTab.addEventListener('keydown', handleArrowKeyNavigation); }
     }
     
     function showModal(title, bodyHtml, okCallback, showCancel = true) {
@@ -559,21 +563,16 @@ window.addEventListener('DOMContentLoaded', () => {
         });
     }
     
-    // ★★★★★ iOS背面カメラ対応・最終版 ★★★★★
     function startCamera(context) {
-        if (html5QrCode && html5QrCode.isScanning) {
-            return;
-        }
+        if (html5QrCode && html5QrCode.isScanning) { return; }
         qrScanContext = context;
         cameraContainer.classList.add('is-visible');
 
         html5QrCode = new Html5Qrcode("qr-reader");
         const config = { fps: 10, qrbox: { width: 250, height: 250 } };
         
-        // 背面カメラを優先して起動を試みる
         html5QrCode.start({ facingMode: "environment" }, config, onQrSuccess, onQrFailure)
             .catch(err => {
-                // 背面カメラが失敗した場合(PC等)、デフォルトのカメラで再試行
                 console.warn("背面カメラの起動に失敗。デフォルトカメラを試します。");
                 html5QrCode.start(undefined, config, onQrSuccess, onQrFailure)
                     .catch(err2 => {
@@ -618,9 +617,7 @@ window.addEventListener('DOMContentLoaded', () => {
     function stopCamera() {
         if (html5QrCode && html5QrCode.isScanning) {
             html5QrCode.stop()
-                .then(() => {
-                    html5QrCode = null;
-                })
+                .then(() => { html5QrCode = null; })
                 .catch(err => {
                     console.error("カメラの停止に失敗しました。", err);
                     html5QrCode = null;
@@ -690,6 +687,33 @@ window.addEventListener('DOMContentLoaded', () => {
     }
 
     function handleTicketNumberEnter(event) { if (event.key === 'Enter') { event.preventDefault(); registerBtn.click(); } }
+
+    // ★★★ 改善されたキーボードナビゲーション ★★★
+    function handleArrowKeyNavigation(e) {
+        const focusableCards = Array.from(receptionTab.querySelectorAll('.selectable-cards .card-button'));
+        const activeElement = document.activeElement;
+
+        if (!focusableCards.includes(activeElement)) return;
+        if (!['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) return;
+        
+        e.preventDefault();
+
+        const currentIndex = focusableCards.indexOf(activeElement);
+        let nextIndex = currentIndex;
+
+        if (e.key === 'ArrowRight' && currentIndex < focusableCards.length - 1) {
+            nextIndex = currentIndex + 1;
+        } else if (e.key === 'ArrowLeft' && currentIndex > 0) {
+            nextIndex = currentIndex - 1;
+        }
+        // シンプルな左右移動のみに限定。上下は環境によって挙動が複雑なため。
+        // 必要であれば、グリッド計算を追加することも可能。
+
+        if (nextIndex !== currentIndex) {
+            focusableCards[nextIndex].focus();
+        }
+    }
+
 
     function getCurrentFormData() {
         const ticketNumberStr = ticketNumberInput.value.trim();
