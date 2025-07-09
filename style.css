@@ -152,7 +152,10 @@ hr { margin: 24px 0; border: 0; border-top: 1px solid var(--border-color); }
 
 /* ========== スマートフォン向けレスポンシブ対応 ========== */
 @media (max-width: 992px) { .reception-grid, .lab-controls { grid-template-columns: 1fr; } }
-@media (max-width: 768px) { .waiting-display-grid { grid-template-columns: 1fr; } }
+@media (max-width: 768px) { .waiting-display-grid { grid-template-columns: 1fr; } 
+    /* ★★★ スマホでは全画面ボタンを非表示にする ★★★ */
+    #fullscreen-btn { display: none; }
+}
 
 /* 検査関連ボタンのサイズ調整 */
 .card-actions .btn.exam-btn,
@@ -168,7 +171,7 @@ hr { margin: 24px 0; border: 0; border-top: 1px solid var(--border-color); }
     color: #000;
 }
 
-/* ★★★ iOS向け案内のスタイル ★★★ */
+/* iOS向け案内のスタイル */
 .ios-prompt-container {
     display: none; /* デフォルトは非表示 */
     margin-top: 20px;
@@ -179,25 +182,18 @@ hr { margin: 24px 0; border: 0; border-top: 1px solid var(--border-color); }
     font-size: 0.9rem;
     color: #004085;
 }
-.ios-prompt-container p {
-    margin: 0;
-    line-height: 1.5;
-}
-.ios-prompt-container svg {
-    width: 1em;
-    height: 1em;
-    vertical-align: -0.15em;
-}
-
+.ios-prompt-container p { margin: 0; line-height: 1.5; }
+.ios-prompt-container svg { width: 1em; height: 1em; vertical-align: -0.15em; }
 
 /* ★★★ スマートフォンなどを横向きにした時の高密度表示スタイル ★★★ */
 @media (orientation: landscape) and (max-height: 600px) {
     .display-page-container .waiting-display-grid {
         display: grid;
         grid-template-columns: repeat(5, 1fr);
-        grid-auto-rows: calc((100vh - 180px - 10px) / 3);
+        grid-auto-rows: calc((100vh - 100px) / 3); /* ヘッダーの高さを考慮して調整 */
         gap: 5px;
     }
+    .display-page-container .display-header { display: none; } /* 横向き時はヘッダーを隠す */
     .display-page-container .waiting-room-card {
         padding: 1vh;
         border-top-width: 4px;
@@ -205,32 +201,9 @@ hr { margin: 24px 0; border: 0; border-top: 1px solid var(--border-color); }
         flex-direction: column;
         justify-content: space-between;
     }
-    .display-page-container .waiting-room-name {
-        font-size: 2vh;
-        margin-bottom: 0.5vh;
-        line-height: 1.1;
-        font-weight: 700;
-    }
-    .display-page-container .waiting-info p {
-        font-size: 1.5vh;
-        margin: 0 0 1vh 0;
-    }
-    .display-page-container .now-serving h4 {
-        font-size: 1.6vh;
-        margin-bottom: 0.5vh;
-        padding-bottom: 0.5vh;
-    }
-    .display-page-container .now-serving-number {
-        font-size: 4.5vh;
-        flex-grow: 1;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        margin: 0;
-        min-height: 0;
-    }
-    .display-page-container .next-in-line,
-    .display-page-container .room-note {
-        display: none;
-    }
+    .display-page-container .waiting-room-name { font-size: 2vh; margin-bottom: 0.5vh; line-height: 1.1; font-weight: 700; }
+    .display-page-container .waiting-info p { font-size: 1.5vh; margin: 0 0 1vh 0; }
+    .display-page-container .now-serving h4 { font-size: 1.6vh; margin-bottom: 0.5vh; padding-bottom: 0.5vh; }
+    .display-page-container .now-serving-number { font-size: 4.5vh; flex-grow: 1; display: flex; align-items: center; justify-content: center; margin: 0; min-height: 0; }
+    .display-page-container .next-in-line, .display-page-container .room-note { display: none; }
 }

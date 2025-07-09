@@ -83,7 +83,25 @@ window.addEventListener('DOMContentLoaded', () => {
       });
       setInterval(renderWaitingDisplay, 15000);
 
-      // ★★★ iOSを検知して案内を表示する機能 ★★★
+      // PC向けの全画面表示ボタンの機能
+      const fullscreenBtn = document.getElementById('fullscreen-btn');
+      if(fullscreenBtn) {
+          fullscreenBtn.addEventListener('click', () => {
+              if (!document.fullscreenElement) {
+                  document.documentElement.requestFullscreen().catch(err => {
+                      alert(`全画面表示にできませんでした: ${err.message}`);
+                  });
+              } else {
+                  document.exitFullscreen();
+              }
+          });
+
+          document.addEventListener('fullscreenchange', () => {
+              fullscreenBtn.textContent = document.fullscreenElement ? '通常表示に戻す' : '全画面表示';
+          });
+      }
+
+      // iOS向け「ホーム画面に追加」の案内機能
       const isIos = /iPhone|iPad|iPod/i.test(navigator.userAgent);
       const iosPrompt = document.getElementById('ios-prompt');
       if (isIos && iosPrompt) {
