@@ -1,21 +1,42 @@
 window.addEventListener('DOMContentLoaded', () => {
-    const idInput = document.getElementById('id-input');
+    // ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
+    // 【重要】あなた自身のFirebase設定をここに貼り付けてください
+    const firebaseConfig = {
+      apiKey: "YOUR_API_KEY",
+      authDomain: "YOUR_AUTH_DOMAIN",
+      projectId: "YOUR_PROJECT_ID",
+      storageBucket: "YOUR_STORAGE_BUCKET",
+      messagingSenderId: "YOUR_MESSAGING_SENDER_ID",
+      appId: "YOUR_APP_ID"
+    };
+    // ▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲
+    
+    firebase.initializeApp(firebaseConfig);
+    const auth = firebase.auth();
+
+    const emailInput = document.getElementById('email-input');
     const passwordInput = document.getElementById('password-input');
     const loginButton = document.getElementById('login-button');
 
-    function enforceNumericInput(event) {
-        event.target.value = event.target.value.replace(/[^0-9]/g, '');
-    }
-
-    if (idInput) idInput.addEventListener('input', enforceNumericInput);
-    if (passwordInput) passwordInput.addEventListener('input', enforceNumericInput);
-
     function attemptLogin() {
-        if (idInput.value === '7302' && passwordInput.value === '7302') {
-            window.location.href = 'admin.html';
-        } else {
-            alert('IDまたはパスワードが間違っています。');
+        const email = emailInput.value;
+        const password = passwordInput.value;
+
+        if (!email || !password) {
+            alert('メールアドレスとパスワードを入力してください。');
+            return;
         }
+
+        auth.signInWithEmailAndPassword(email, password)
+            .then((userCredential) => {
+                // ログイン成功
+                window.location.href = 'admin.html';
+            })
+            .catch((error) => {
+                // ログイン失敗
+                console.error("ログインエラー:", error);
+                alert("メールアドレスまたはパスワードが間違っています。");
+            });
     }
 
     if (loginButton) loginButton.addEventListener('click', attemptLogin);

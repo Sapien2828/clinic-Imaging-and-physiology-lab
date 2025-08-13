@@ -4,22 +4,25 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>スタッフログイン</title>
-    <link rel="stylesheet" href="style.css?v=final">
+    <link rel="stylesheet" href="style.css">
 </head>
 <body>
     <div class="login-container">
         <h2>スタッフログイン</h2>
         <div class="form-group">
-            <label for="id-input">ID</label>
-            <input type="text" id="id-input" placeholder="ID" inputmode="numeric">
+            <label for="email-input">メールアドレス</label>
+            <input type="email" id="email-input" placeholder="メールアドレス">
         </div>
         <div class="form-group">
             <label for="password-input">パスワード</label>
-            <input type="password" id="password-input" placeholder="パスワード" inputmode="numeric">
+            <input type="password" id="password-input" placeholder="パスワード">
         </div>
         <button id="login-button" class="btn">ログイン</button>
-        <a href="display.html" class="guest-link">検査混雑状況、画像生理待合表示はこちら</a>
+        <hr>
+        <a href="display.html" class="guest-link">検査混雑状況の確認はこちら</a>
     </div>
-    <script src="login.js?v=final"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
+    <script src="login.js"></script>
 </body>
 </html>

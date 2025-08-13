@@ -33,25 +33,9 @@ hr { margin: 24px 0; border: 0; border-top: 1px solid var(--border-color); }
 .modal-content #modal-body { margin-bottom: 30px; }
 .modal-actions { text-align: right; display: flex; justify-content: flex-end; gap: 15px; }
 
-/* ========== 管理者画面・待合画面 共通スタイル ========== */
-.admin-container, .display-page-container { width: 100%; max-width: 1200px; margin: 20px auto; padding: 0 15px; box-sizing: border-box; }
-
-/* ========== display.html ヘッダーのスタイル ========== */
-.display-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    border-bottom: 2px solid var(--border-color);
-    padding-bottom: 20px;
-    margin-bottom: 20px;
-}
-.header-text-group { text-align: left; }
-.header-text-group h2,
-.header-text-group p { margin: 0; }
-.header-text-group h2 { border-bottom: none; padding-bottom: 0; margin-bottom: 5px; }
-.header-button-group { flex-shrink: 0; margin-left: 20px; }
-
 /* ========== 管理者画面のタブUIスタイル ========== */
+.admin-container, .display-page-container { width: 100%; max-width: 1200px; margin: 20px auto; padding: 0 15px; box-sizing: border-box; }
+.admin-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; padding: 0 10px; }
 .tab-buttons { display: flex; border-bottom: 2px solid var(--border-color); }
 .tab-button { padding: 15px 25px; font-size: 1rem; font-weight: 600; cursor: pointer; background-color: transparent; border: none; border-bottom: 3px solid transparent; color: #6c757d; transition: all 0.2s ease; }
 .tab-button:hover { background-color: #f1f3f5; }
@@ -59,8 +43,9 @@ hr { margin: 24px 0; border: 0; border-top: 1px solid var(--border-color); }
 .tab-contents { padding: 20px; background-color: white; border: 1px solid var(--border-color); border-top: none; border-radius: 0 0 var(--border-radius) var(--border-radius); }
 .tab-content { display: none; }
 .tab-content.active { display: block; }
-.tab-content h2 { text-align: left; margin-top: 0; border-bottom: 2px solid var(--border-color); padding-bottom: 15px; margin-bottom: 20px; }
+.tab-content h2, .display-header h2 { text-align: left; margin-top: 0; border-bottom: 2px solid var(--border-color); padding-bottom: 15px; margin-bottom: 20px; }
 .tab-content h3 { font-size: 1.1rem; margin-top: 1.5rem; margin-bottom: 1rem; }
+.display-header { text-align: center; }
 
 /* ========== 受付画面 & 検査室画面共通のスタイル ========== */
 .reception-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 30px; }
@@ -153,90 +138,6 @@ hr { margin: 24px 0; border: 0; border-top: 1px solid var(--border-color); }
 .next-numbers span { margin: 0 0.1em; }
 .room-note { font-size: 0.85rem; color: #6c757d; background-color: #f8f9fa; padding: 10px; border-radius: var(--border-radius); margin-top: 20px; }
 
-/* ========== ログイン画面のスタイル ========== */
-.login-container {
-    max-width: 400px; margin: 100px auto; padding: 40px; background-color: white;
-    border-radius: var(--border-radius); box-shadow: var(--card-shadow);
-}
-.login-container h2 { text-align: center; margin-bottom: 2rem; }
-.form-group { margin-bottom: 1.5rem; }
-.form-group label { display: block; margin-bottom: 0.5rem; }
-.form-group input { width: 100%; }
-.guest-link { display: block; text-align: center; margin-top: 1.5rem; }
-
 /* ========== スマートフォン向けレスポンシブ対応 ========== */
 @media (max-width: 992px) { .reception-grid, .lab-controls { grid-template-columns: 1fr; } }
-@media (max-width: 768px) { 
-    .waiting-display-grid { grid-template-columns: 1fr; } 
-    #fullscreen-btn { display: none; }
-    .display-header { flex-direction: column; align-items: center; }
-}
-
-/* 検査関連ボタンのサイズ調整 */
-.card-actions .btn.exam-btn,
-.card-actions .btn.finish-exam-btn,
-.card-actions .btn.return-to-wait-btn {
-    padding: 7px 14px;
-    font-size: 1.1rem;
-    min-width: 90px;
-}
-.card-actions .btn.return-to-wait-btn {
-    background-color: var(--warning-color);
-    color: #000;
-}
-
-/* iOS向け案内のスタイル */
-.ios-prompt-container {
-    display: none;
-    margin-top: 20px;
-    padding: 15px;
-    background-color: #e9f5ff;
-    border: 1px solid #b3d7ff;
-    border-radius: var(--border-radius);
-    font-size: 0.9rem;
-    color: #004085;
-    text-align: center;
-}
-.ios-prompt-container p { margin: 0; line-height: 1.5; }
-.ios-prompt-container svg { width: 1em; height: 1em; vertical-align: -0.15em; }
-
-/* ★★★ PCの全画面表示ボタンで適用される高密度スタイル ★★★ */
-.dense-view .waiting-display-grid {
-    display: grid;
-    grid-template-columns: repeat(5, 1fr);
-    grid-auto-rows: calc((100vh - 40px) / 3);
-    gap: 5px;
-}
-.dense-view .display-header,
-.dense-view .ios-prompt-container {
-    display: none;
-}
-.dense-view .waiting-room-card {
-    padding: 1vh; border-top-width: 4px; display: flex; flex-direction: column; justify-content: space-between;
-}
-.dense-view .waiting-room-name { font-size: 2vh; margin-bottom: 0.5vh; line-height: 1.1; font-weight: 700; }
-.dense-view .waiting-info p { font-size: 1.5vh; margin: 0 0 1vh 0; }
-.dense-view .now-serving h4 { font-size: 1.6vh; margin-bottom: 0.5vh; padding-bottom: 0.5vh; }
-.dense-view .now-serving-number { font-size: 4.5vh; flex-grow: 1; display: flex; align-items: center; justify-content: center; margin: 0; min-height: 0; }
-.dense-view .next-in-line, .dense-view .room-note { display: none; }
-
-/* ★★★ スマートフォンなどを横向きにした時の高密度スタイル ★★★ */
-@media (orientation: landscape) and (max-width: 900px) {
-    .display-page-container .waiting-display-grid {
-        grid-template-columns: repeat(5, 1fr);
-        grid-auto-rows: calc((100vh - 20px) / 3);
-        gap: 5px;
-    }
-    .display-page-container .display-header,
-    .display-page-container .ios-prompt-container {
-        display: none; 
-    }
-    .display-page-container .waiting-room-card {
-        padding: 1vh; border-top-width: 4px; display: flex; flex-direction: column; justify-content: space-between;
-    }
-    .display-page-container .waiting-room-name { font-size: 2vh; margin-bottom: 0.5vh; line-height: 1.1; font-weight: 700; }
-    .display-page-container .waiting-info p { font-size: 1.5vh; margin: 0 0 1vh 0; }
-    .display-page-container .now-serving h4 { font-size: 1.6vh; margin-bottom: 0.5vh; padding-bottom: 0.5vh; }
-    .display-page-container .now-serving-number { font-size: 4.5vh; flex-grow: 1; display: flex; align-items: center; justify-content: center; margin: 0; min-height: 0; }
-    .display-page-container .next-in-line, .display-page-container .room-note { display: none; }
-}
+@media (max-width: 768px) { .waiting-display-grid { grid-template-columns: 1fr; } }
