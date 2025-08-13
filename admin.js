@@ -7,7 +7,7 @@ window.addEventListener('DOMContentLoaded', () => {
 
     // ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
     // 【重要】あなた自身のFirebase設定をここに貼り付けてください
- const firebaseConfig = {
+const firebaseConfig = {
   apiKey: "AIzaSyCsk7SQQY58yKIn-q4ps1gZ2BRbc2k6flE",
   authDomain: "clinic-imaging-and-physiology.firebaseapp.com",
   projectId: "clinic-imaging-and-physiology",
@@ -15,7 +15,6 @@ window.addEventListener('DOMContentLoaded', () => {
   messagingSenderId: "568457688933",
   appId: "1:568457688933:web:2eee210553b939cf39538c"
 
-    };
     // ▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲
 
     // Firebaseの初期化
@@ -177,7 +176,7 @@ window.addEventListener('DOMContentLoaded', () => {
         if(logoutButton) { logoutButton.addEventListener('click', () => { auth.signOut(); }); }
     }
 
-    // === QRコードカメラ関連の関数 ===
+    // === QRコードカメラ関連の関数 (修正箇所) ===
 
     /**
      * QRコード読み取り用のカメラを起動する
@@ -204,20 +203,28 @@ window.addEventListener('DOMContentLoaded', () => {
         };
 
         try {
-            const cameras = await Html5Qrcode.getCameras();
-            if (cameras && cameras.length) {
-                let cameraId;
-                const rearCamera = cameras.find(camera => camera.label.toLowerCase().includes('back') || camera.label.toLowerCase().includes('rear') || (camera.facing && camera.facing.toLowerCase() === 'environment'));
-                cameraId = rearCamera ? rearCamera.id : cameras[0].id;
-                
-                await html5QrCode.start(cameraId, config, onQrSuccess, onQrFailure);
-            } else {
-                await html5QrCode.start({ facingMode: "environment" }, config, onQrSuccess, onQrFailure);
-            }
+            // 背面カメラを優先して起動する
+            await html5QrCode.start(
+                { facingMode: "environment" },
+                config,
+                onQrSuccess,
+                onQrFailure
+            );
         } catch (err) {
-            console.error("QRカメラの起動に失敗:", err);
-            alert(`カメラの起動に失敗しました。ブラウザでカメラへのアクセスが許可されているか確認してください。\nエラー: ${err.name} - ${err.message}`);
-            await stopCamera();
+            console.error("背面カメラの起動に失敗:", err);
+            // 背面カメラで失敗した場合、任意のカメラで再試行する（デスクトップPCなど）
+            try {
+                console.log("任意のカメラで再試行します。");
+                await html5QrCode.start(
+                    {}, // カメラ制約なし
+                    config,
+                    onQrSuccess,
+                    onQrFailure
+                );
+            } catch (fallbackErr) {
+                alert(`カメラの起動に失敗しました。ブラウザでカメラへのアクセスが許可されているか確認してください。\nエラー: ${fallbackErr.message}`);
+                await stopCamera();
+            }
         }
     }
 
@@ -228,22 +235,27 @@ window.addEventListener('DOMContentLoaded', () => {
     function onQrSuccess(decodedText) {
         stopCamera();
         
-        const validQrPattern = /^[1-9][0-9]{0,3}$/;
-        if (validQrPattern.test(decodedText)) {
+        // 読み取った文字列を数値に変換（"001" -> 1）
+        const numericValue = parseInt(decodedText, 10);
+
+        // 数値であり、1から1000の範囲内かチェック
+        if (!isNaN(numericValue) && numericValue >= 1 && numericValue <= 1000) {
+            const ticketNumberStr = String(numericValue); // 先頭のゼロを除いた文字列に
+
             if (qrScanContext === 'reception') {
-                ticketNumberInput.value = decodedText;
+                ticketNumberInput.value = ticketNumberStr;
                 ticketNumberInput.dispatchEvent(new Event('input', { bubbles: true }));
                 setTimeout(() => registerBtn.click(), 100);
             } else if (qrScanContext === 'lab') {
-                const patient = registeredPatients.find(p => p.ticketNumber === decodedText && p.labs.includes(labRoomSelect.value));
+                const patient = registeredPatients.find(p => p.ticketNumber === ticketNumberStr && p.labs.includes(labRoomSelect.value));
                 if (patient) {
                    handleExamButtonClick(patient.id);
                 } else {
-                    alert(`番号札「${decodedText}」の患者は、この検査室の待機リストに見つかりませんでした。`);
+                    alert(`番号札「${ticketNumberStr}」の患者は、この検査室の待機リストに見つかりませんでした。`);
                 }
             }
         } else {
-            alert(`無効なQRコードです: ${decodedText}\n(1～9999の番号を読み取ってください)`);
+            alert(`無効なQRコードです: 「${decodedText}」\n(1～1000の番号を読み取ってください)`);
         }
     }
 
@@ -251,8 +263,7 @@ window.addEventListener('DOMContentLoaded', () => {
      * QRコードの読み取りに失敗したときの処理
      */
     function onQrFailure(error) {
-        // This function is called every time a scan fails.
-        // We don't need to do anything here.
+        // スキャン毎に呼ばれるため、ここでは何もしない
     }
 
     /**
