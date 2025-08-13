@@ -1,6 +1,7 @@
 window.addEventListener('DOMContentLoaded', () => {
     // ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
- const firebaseConfig = {
+    // 【重要】あなた自身のFirebase設定をここに貼り付けてください
+  const firebaseConfig = {
   apiKey: "AIzaSyCsk7SQQY58yKIn-q4ps1gZ2BRbc2k6flE",
   authDomain: "clinic-imaging-and-physiology.firebaseapp.com",
   projectId: "clinic-imaging-and-physiology",
@@ -8,6 +9,7 @@ window.addEventListener('DOMContentLoaded', () => {
   messagingSenderId: "568457688933",
   appId: "1:568457688933:web:2eee210553b939cf39538c"
 };
+
     // ▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲
 
     firebase.initializeApp(firebaseConfig);
@@ -85,7 +87,7 @@ window.addEventListener('DOMContentLoaded', () => {
             })
             .catch((error) => {
                 console.error("匿名認証エラー:", error);
-                waitingDisplayGrid.innerHTML = `<p class="no-patients">データの読み込みに失敗しました。管理者にお問い合わせください。</p>`;
+                if(waitingDisplayGrid) waitingDisplayGrid.innerHTML = `<p class="no-patients">データの読み込みに失敗しました。管理者にお問い合わせください。</p>`;
             });
     }
 

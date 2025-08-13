@@ -4,7 +4,7 @@ window.addEventListener('DOMContentLoaded', () => {
         return;
     }
 
- const firebaseConfig = {
+  const firebaseConfig = {
   apiKey: "AIzaSyCsk7SQQY58yKIn-q4ps1gZ2BRbc2k6flE",
   authDomain: "clinic-imaging-and-physiology.firebaseapp.com",
   projectId: "clinic-imaging-and-physiology",
@@ -12,6 +12,7 @@ window.addEventListener('DOMContentLoaded', () => {
   messagingSenderId: "568457688933",
   appId: "1:568457688933:web:2eee210553b939cf39538c"
 };
+
 
     firebase.initializeApp(firebaseConfig);
     const db = firebase.firestore();
@@ -286,6 +287,7 @@ window.addEventListener('DOMContentLoaded', () => {
         if (!newPatientData.patientId || !newPatientData.ticketNumber) { alert('患者IDと番号札は必須です。'); return; }
         const querySnapshot = await patientsCollection.where("ticketNumber", "==", newPatientData.ticketNumber).get();
         if (!querySnapshot.empty) { alert('エラー: この番号札は既に使用されています。'); return; }
+        
         await patientsCollection.add(newPatientData);
         resetReceptionForm();
     }
@@ -396,144 +398,4 @@ window.addEventListener('DOMContentLoaded', () => {
                 await patientRef.delete();
             } else {
                 const updateData = { labs: newLabs };
-                if (patient.isExamining && (Object.keys(roomConfiguration).find(key => roomConfiguration[key]?.includes(patient.assignedExamRoom)) || patient.assignedExamRoom) === currentLabGroup) {
-                    updateData.isExamining = false;
-                    updateData.assignedExamRoom = null;
-                    updateData.inRoomSince = null;
-                }
-                await patientRef.update(updateData);
-            }
-        }
-    }
-    
-    function renderRegisteredList() {
-        if (!registeredListContainer) return;
-        const listScrollTop = registeredListContainer.scrollTop;
-        registeredListContainer.innerHTML = '';
-        if (registeredPatients.length === 0) { registeredListContainer.innerHTML = '<p class="no-patients">現在登録されている患者はいません。</p>'; return; }
-        registeredPatients.forEach(patient => {
-            const cardHtml = renderPatientCardHTML(patient, 'reception');
-            registeredListContainer.insertAdjacentHTML('beforeend', cardHtml);
-        });
-        registeredListContainer.scrollTop = listScrollTop;
-    }
-    
-    function renderLabWaitingList() {
-        if (!labWaitingListContainer) return;
-        const selectedRoomOrGroup = labRoomSelect.value;
-        labWaitingListTitle.textContent = selectedRoomOrGroup ? `${selectedRoomOrGroup} 待機患者リスト` : '待機患者リスト';
-        labWaitingListContainer.innerHTML = '';
-        if (!selectedRoomOrGroup) { labWaitingListContainer.innerHTML = '<p class="no-patients">検査室を選択してください。</p>'; return; }
-        const waitingPatients = registeredPatients.filter(p => p.labs.includes(selectedRoomOrGroup));
-        if (waitingPatients.length === 0) { labWaitingListContainer.innerHTML = `<p class="no-patients">${selectedRoomOrGroup}の待機患者はいません。</p>`; return; }
-        waitingPatients.forEach(patient => {
-            const cardHtml = renderPatientCardHTML(patient, 'lab');
-            labWaitingListContainer.insertAdjacentHTML('beforeend', cardHtml);
-        });
-    }
-
-    function renderWaitingDisplay() { /* ... full function ... */ }
-    function renderPatientCardHTML(patientData, viewType, context = {}) { /* ... full function ... */ }
-    function populateLabRoomSelect() { /* ... full function ... */ }
-    
-    function startCamera(context) {
-        if (!cameraContainer || !qrReaderDiv) return;
-        qrScanContext = context;
-        if (!html5QrCode) {
-            html5QrCode = new Html5Qrcode("qr-reader");
-        }
-        cameraContainer.classList.add('is-visible');
-        const config = { fps: 10, qrbox: { width: 250, height: 250 } };
-        html5QrCode.start({ facingMode: "environment" }, config, onQrSuccess, onQrFailure)
-            .catch(err => console.error("QRカメラの起動に失敗:", err));
-    }
-    function onQrSuccess(decodedText, decodedResult) {
-        stopCamera();
-        const validQrPattern = /^[1-9][0-9]{0,3}$/; // 1-9999
-        if (validQrPattern.test(decodedText)) {
-            if (qrScanContext === 'reception') {
-                ticketNumberInput.value = decodedText;
-                ticketNumberInput.dispatchEvent(new Event('input', { bubbles: true }));
-                setTimeout(() => registerBtn.click(), 100);
-            } else if (qrScanContext === 'lab') {
-                const patient = registeredPatients.find(p => p.ticketNumber === decodedText && p.labs.includes(labRoomSelect.value));
-                if (patient) {
-                   handleExamButtonClick(patient.id);
-                } else {
-                    alert(`番号札「${decodedText}」の患者は、このリストに見つかりませんでした。`);
-                }
-            }
-        } else {
-            alert(`無効なQRコードです: ${decodedText}`);
-        }
-    }
-    function onQrFailure(error) { /* console.log(`QR error = ${error}`); */ }
-    function stopCamera() {
-        if (html5QrCode && html5QrCode.isScanning) {
-            html5QrCode.stop().then(() => cameraContainer.classList.remove('is-visible')).catch(err => {});
-        } else {
-            cameraContainer.classList.remove('is-visible');
-        }
-    }
-    
-    async function handleMove(patientId, direction) {
-        const index = registeredPatients.findIndex(p => p.id === patientId);
-        if (index === -1) return;
-        let otherIndex = -1;
-        if (direction === 'up' && index > 0) { otherIndex = index - 1; } 
-        else if (direction === 'down' && index < registeredPatients.length - 1) { otherIndex = index + 1; }
-        
-        if (otherIndex !== -1) {
-            const patient1 = registeredPatients[index];
-            const patient2 = registeredPatients[otherIndex];
-            const batch = db.batch();
-            batch.update(patientsCollection.doc(patient1.id), { order: patient2.order });
-            batch.update(patientsCollection.doc(patient2.id), { order: patient1.order });
-            await batch.commit();
-        }
-    }
-        
-    function getDragAfterElement(container, y) { /* ... full function ... */ }
-    function toggleCardSelection(card) { /* ... full function ... */ }
-    function handlePatientIdInput(e, focusableElements) { /* ... full function ... */ }
-    function handlePatientIdBlur(event) { /* ... full function ... */ }
-    function handleNumericInput(event) { /* ... full function ... */ }
-    function handleTicketNumberEnter(event) { /* ... full function ... */ }
-    function handleArrowKeyNavigation(e, focusableElements) { /* ... full function ... */ }
-    
-    function getCurrentFormData() {
-        return {
-            patientId: patientIdInput.value, ticketNumber: ticketNumberInput.value, receptionTime: firebase.firestore.FieldValue.serverTimestamp(),
-            labs: Array.from(labSelectionCards).filter(c => c.classList.contains('selected')).map(c => c.dataset.value),
-            statuses: Array.from(statusSelectionCards).filter(c => c.classList.contains('selected') || c.classList.contains('selected-urgent')).map(c => c.dataset.value),
-            specialNotes: specialNotesInput.value, isAway: false, awayTime: null, isExamining: false, assignedExamRoom: null, inRoomSince: null,
-            order: registeredPatients.length > 0 ? Math.max(...registeredPatients.map(p => p.order)) + 1 : 0
-        };
-    }
-
-    function updatePreview() {
-        if (!previewArea) return;
-        const formData = getCurrentFormData();
-        if (!formData.patientId && !formData.ticketNumber && formData.labs.length === 0 && formData.statuses.length === 0 && !formData.specialNotes) {
-            previewArea.innerHTML = '<p class="no-patients">入力するとここにプレビューが表示されます。</p>'; return;
-        }
-        formData.receptionTime = new Date();
-        previewArea.innerHTML = renderPatientCardHTML(formData, 'reception');
-    }
-
-    function resetReceptionForm(shouldFocus = true) {
-        if (!patientIdInput) return;
-        patientIdInput.value = ''; ticketNumberInput.value = ''; specialNotesInput.value = '';
-        allReceptionCards.forEach(card => card.classList.remove('selected', 'selected-urgent'));
-        if (editMode.active) {
-            editMode = { active: false, patientId: null };
-            registerBtn.textContent = '受付登録';
-            registerBtn.classList.remove('btn-info');
-            registerBtn.classList.add('btn-success');
-        }
-        updatePreview();
-        if (shouldFocus) { patientIdInput.focus(); }
-    }
-        
-    initialize();
-});
+                if (patient.
