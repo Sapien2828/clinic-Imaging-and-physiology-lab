@@ -1,7 +1,7 @@
 window.addEventListener('DOMContentLoaded', () => {
     // ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
     // 【重要】あなた自身のFirebase設定をここに貼り付けてください
-  const firebaseConfig = {
+const firebaseConfig = {
   apiKey: "AIzaSyCsk7SQQY58yKIn-q4ps1gZ2BRbc2k6flE",
   authDomain: "clinic-imaging-and-physiology.firebaseapp.com",
   projectId: "clinic-imaging-and-physiology",
@@ -30,9 +30,11 @@ window.addEventListener('DOMContentLoaded', () => {
 
         auth.signInWithEmailAndPassword(email, password)
             .then((userCredential) => {
+                // ログイン成功
                 window.location.href = 'admin.html';
             })
             .catch((error) => {
+                // ログイン失敗
                 console.error("ログインエラー:", error.code, error.message);
                 alert("メールアドレスまたはパスワードが間違っています。");
             });
