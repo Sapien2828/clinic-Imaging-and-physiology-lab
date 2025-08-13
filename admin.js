@@ -164,8 +164,14 @@ const firebaseConfig = {
             card.addEventListener('click', () => toggleCardSelection(card));
             card.addEventListener('keydown', (e) => { if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); toggleCardSelection(card); } });
         });
-        if (patientIdInput) { patientIdInput.addEventListener('input', (e) => handlePatientIdInput(e, allFocusableElements)); patientIdInput.addEventListener('blur', handlePatientIdBlur); }
-        if (ticketNumberInput) { ticketNumberInput.addEventListener('input', handleNumericInput); ticketNumberInput.addEventListener('keydown', handleTicketNumberEnter); }
+        if (patientIdInput) { 
+            patientIdInput.addEventListener('input', (e) => handlePatientIdInput(e, allFocusableElements)); 
+            patientIdInput.addEventListener('blur', handlePatientIdBlur); 
+        }
+        if (ticketNumberInput) { 
+            ticketNumberInput.addEventListener('input', handleNumericInput); 
+            ticketNumberInput.addEventListener('keydown', handleTicketNumberEnter); 
+        }
         if (specialNotesInput) { specialNotesInput.addEventListener('input', updatePreview); }
         if (receptionQrReaderBtn) { receptionQrReaderBtn.addEventListener('click', () => startCamera('reception')); }
         if (labQrReaderBtn) { labQrReaderBtn.addEventListener('click', () => startCamera('lab')); }
@@ -203,7 +209,7 @@ const firebaseConfig = {
         };
 
         try {
-            // 背面カメラを優先して起動する
+            // スマートフォンなどで背面カメラを優先して起動する
             await html5QrCode.start(
                 { facingMode: "environment" },
                 config,
@@ -211,7 +217,7 @@ const firebaseConfig = {
                 onQrFailure
             );
         } catch (err) {
-            console.error("背面カメラの起動に失敗:", err);
+            console.warn("背面カメラの起動に失敗:", err);
             // 背面カメラで失敗した場合、任意のカメラで再試行する（デスクトップPCなど）
             try {
                 console.log("任意のカメラで再試行します。");
@@ -222,6 +228,7 @@ const firebaseConfig = {
                     onQrFailure
                 );
             } catch (fallbackErr) {
+                console.error("カメラの起動に最終的に失敗しました:", fallbackErr);
                 alert(`カメラの起動に失敗しました。ブラウザでカメラへのアクセスが許可されているか確認してください。\nエラー: ${fallbackErr.message}`);
                 await stopCamera();
             }
@@ -274,7 +281,8 @@ const firebaseConfig = {
             try {
                 await html5QrCode.stop();
             } catch (err) {
-                console.error("カメラの停止に失敗しました:", err);
+                // カメラがすでに停止している場合などにエラーが出ることがあるが、
+                // UI上は非表示にするため、ここではエラーを無視する
             }
         }
         cameraContainer.classList.remove('is-visible');
@@ -568,6 +576,7 @@ const firebaseConfig = {
     async function handleRegistration() {
         const newPatientData = getCurrentFormData();
         if (!newPatientData.patientId || !newPatientData.ticketNumber) { alert('患者IDと番号札は必須です。'); return; }
+        if (!/^\d{7}$/.test(newPatientData.patientId)) { alert('患者IDは7桁の数字で入力してください。'); return; }
         const querySnapshot = await patientsCollection.where("ticketNumber", "==", newPatientData.ticketNumber).get();
         if (!querySnapshot.empty) { alert('エラー: この番号札は既に使用されています。'); return; }
         
@@ -580,6 +589,7 @@ const firebaseConfig = {
         const newTicketNumber = ticketNumberInput.value;
         const newPatientId = patientIdInput.value;
         if (!newPatientId || !newTicketNumber) { alert('患者IDと番号札は必須です。'); return; }
+        if (!/^\d{7}$/.test(newPatientId)) { alert('患者IDは7桁の数字で入力してください。'); return; }
         
         const querySnapshot = await patientsCollection.where("ticketNumber", "==", newTicketNumber).get();
         const conflictingDoc = querySnapshot.docs.find(doc => doc.id !== editMode.patientId);
@@ -747,6 +757,11 @@ const firebaseConfig = {
     }
 
     function handlePatientIdInput(e, focusableElements) {
+        // 7桁を超えて入力できないようにする
+        if (e.target.value.length > 7) {
+            e.target.value = e.target.value.slice(0, 7);
+        }
+        // 7桁に達したら次の要素へフォーカスを移動
         if (e.target.value.length === 7) {
             const currentIndex = focusableElements.findIndex(el => el === e.target);
             const nextElement = focusableElements[currentIndex + 1];
@@ -756,9 +771,9 @@ const firebaseConfig = {
 
     function handlePatientIdBlur(event) {
         const value = event.target.value;
+        // 値があり、かつ7桁の数字でない場合に警告
         if (value && !/^\d{7}$/.test(value)) {
             alert('患者IDは7桁の数字で入力してください。');
-            event.target.focus();
         }
     }
 

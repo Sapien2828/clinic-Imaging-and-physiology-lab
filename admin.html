@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>管理者画面</title>
     <link rel="stylesheet" href="style.css">
-    <!-- QRコードライブラリを安定したバージョンに更新 -->
+    <!-- 安定したQRコードライブラリのバージョンを明示的に指定 -->
     <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
 </head>
 <body>
@@ -25,7 +25,7 @@
                     <div class="reception-column" id="reception-left-column">
                         <div class="form-section">
                             <label for="patient-id">患者ID (7桁):</label>
-                            <input type="text" id="patient-id" placeholder="患者IDをスキャンまたは入力" tabindex="1" inputmode="numeric">
+                            <input type="text" id="patient-id" placeholder="患者IDをスキャンまたは入力" tabindex="1" inputmode="numeric" maxlength="7">
                         </div>
                         <div class="form-section">
                             <h3>検査室選択 (複数選択可)</h3>
@@ -63,7 +63,7 @@
                     </div>
                     <div class="reception-column" id="reception-right-column">
                         <div class="form-section">
-                            <label for="ticket-number">番号札 (1-9999):</label>
+                            <label for="ticket-number">番号札 (1-1000):</label>
                             <input type="text" id="ticket-number" placeholder="番号札の番号を手入力" inputmode="numeric" tabindex="18">
                         </div>
                         <div class="form-section">
