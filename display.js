@@ -1,7 +1,7 @@
 window.addEventListener('DOMContentLoaded', () => {
     // ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
     // 【重要】あなた自身のFirebase設定をここに貼り付けてください
-const firebaseConfig = {
+ const firebaseConfig = {
   apiKey: "AIzaSyCsk7SQQY58yKIn-q4ps1gZ2BRbc2k6flE",
   authDomain: "clinic-imaging-and-physiology.firebaseapp.com",
   projectId: "clinic-imaging-and-physiology",
@@ -47,7 +47,7 @@ const firebaseConfig = {
             const waitCount = waitingPatientsForGroup.length;
             let waitTime = 0;
             if (waitCount > 0) {
-                const earliestPatient = patientsForThisGroup.filter(p => !p.isExamining && p.receptionTime).reduce((earliest, current) => earliest.receptionTime < current.receptionTime ? earliest : current);
+                const earliestPatient = patientsForThisGroup.filter(p => !p.isExamining && p.receptionTime).reduce((earliest, current) => earliest.receptionTime < current.receptionTime ? earliest : current, {receptionTime: new Date()});
                 if (earliestPatient && earliestPatient.receptionTime) {
                     waitTime = Math.round((new Date() - earliestPatient.receptionTime) / (1000 * 60));
                 }
@@ -76,7 +76,7 @@ const firebaseConfig = {
                 patientsCollection.orderBy("order").onSnapshot(snapshot => {
                     registeredPatients = snapshot.docs.map(doc => {
                         const data = doc.data();
-                        // データベースから取得した時刻データを正しく変換する
+                        // データベースから取得した時刻データが存在する場合のみ正しく変換する
                         return {
                             id: doc.id,
                             ...data,
