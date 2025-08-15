@@ -9,7 +9,7 @@ const firebaseConfig = {
   messagingSenderId: "568457688933",
   appId: "1:568457688933:web:2eee210553b939cf39538c"
 };
-
+   };
     // ▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲
 
     firebase.initializeApp(firebaseConfig);
@@ -47,7 +47,7 @@ const firebaseConfig = {
             const waitCount = waitingPatientsForGroup.length;
             let waitTime = 0;
             if (waitCount > 0) {
-                const earliestPatient = patientsForThisGroup.filter(p => !p.isExamining).reduce((earliest, current) => new Date(earliest.receptionTime) < new Date(current.receptionTime) ? earliest : current);
+                const earliestPatient = patientsForThisGroup.filter(p => !p.isExamining && p.receptionTime).reduce((earliest, current) => earliest.receptionTime < current.receptionTime ? earliest : current);
                 if (earliestPatient && earliestPatient.receptionTime) {
                     waitTime = Math.round((new Date() - earliestPatient.receptionTime) / (1000 * 60));
                 }
@@ -69,23 +69,27 @@ const firebaseConfig = {
     }
     
     function initialize() {
+        // ゲスト（ログインしていないユーザー）として匿名でサインインする
         auth.signInAnonymously()
             .then(() => {
+                // データベースの変更をリアルタイムで監視する
                 patientsCollection.orderBy("order").onSnapshot(snapshot => {
                     registeredPatients = snapshot.docs.map(doc => {
                         const data = doc.data();
+                        // データベースから取得した時刻データを正しく変換する
                         return {
                             id: doc.id,
                             ...data,
-                            receptionTime: data.receptionTime.toDate(),
+                            receptionTime: data.receptionTime ? data.receptionTime.toDate() : null,
                             awayTime: data.awayTime ? data.awayTime.toDate() : null,
                             inRoomSince: data.inRoomSince ? data.inRoomSince.toDate() : null,
                         };
                     });
+                    // 画面を再描画する
                     renderWaitingDisplay();
                 }, error => {
                     console.error("Firestoreからのデータ取得に失敗しました:", error);
-                    if(waitingDisplayGrid) waitingDisplayGrid.innerHTML = `<p class="no-patients">データの読み込みに失敗しました。管理者にお問い合わせください。</p>`;
+                    if(waitingDisplayGrid) waitingDisplayGrid.innerHTML = `<p class="no-patients">データの読み込みに失敗しました。Firebaseのセキュリティルールを確認してください。</p>`;
                 });
             })
             .catch((error) => {
