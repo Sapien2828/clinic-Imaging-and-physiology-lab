@@ -41,14 +41,16 @@ const firebaseConfig = {
             const nowServingPatient = registeredPatients.find(p => p.isExamining && p.assignedExamRoom === roomName);
             const nowServingNumber = nowServingPatient ? nowServingPatient.ticketNumber : '-';
             const groupName = Object.keys(roomConfiguration).find(key => roomConfiguration[key]?.includes(roomName)) || roomName;
-            const waitingPatientsForGroup = registeredPatients.filter(p => p.labs.includes(groupName) && !p.isExamining);
+            const waitingPatientsForGroup = registeredPatients.filter(p => p.labs.includes(groupName) && !p.isExamining && !p.isAway);
             const nextNumbers = waitingPatientsForGroup.slice(0, 10).map(p => `<span>${p.ticketNumber}</span>`).join('') || '-';
             const patientsForThisGroup = registeredPatients.filter(p => p.labs.includes(groupName));
-            const waitCount = patientsForThisGroup.length;
+            const waitCount = waitingPatientsForGroup.length;
             let waitTime = 0;
             if (waitCount > 0) {
-                const earliestPatient = patientsForThisGroup.reduce((earliest, current) => new Date(earliest.receptionTime) < new Date(current.receptionTime) ? earliest : current);
-                waitTime = Math.round((new Date() - new Date(earliestPatient.receptionTime)) / (1000 * 60));
+                const earliestPatient = patientsForThisGroup.filter(p => !p.isExamining).reduce((earliest, current) => new Date(earliest.receptionTime) < new Date(current.receptionTime) ? earliest : current);
+                if (earliestPatient && earliestPatient.receptionTime) {
+                    waitTime = Math.round((new Date() - earliestPatient.receptionTime) / (1000 * 60));
+                }
             }
             const roomNameShort = groupName.split('(')[0];
             let noteHtml = specialNoteRooms.includes(roomName) ? `<p class="room-note">${specialNoteText}</p>` : '';
@@ -83,6 +85,7 @@ const firebaseConfig = {
                     renderWaitingDisplay();
                 }, error => {
                     console.error("Firestoreからのデータ取得に失敗しました:", error);
+                    if(waitingDisplayGrid) waitingDisplayGrid.innerHTML = `<p class="no-patients">データの読み込みに失敗しました。管理者にお問い合わせください。</p>`;
                 });
             })
             .catch((error) => {
