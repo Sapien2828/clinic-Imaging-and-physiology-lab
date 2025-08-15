@@ -6,7 +6,7 @@ window.addEventListener('DOMContentLoaded', () => {
 
     // ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
     // 【重要】あなた自身のFirebase設定をここに貼り付けてください
-  const firebaseConfig = {
+const firebaseConfig = {
   apiKey: "AIzaSyCsk7SQQY58yKIn-q4ps1gZ2BRbc2k6flE",
   authDomain: "clinic-imaging-and-physiology.firebaseapp.com",
   projectId: "clinic-imaging-and-physiology",
@@ -15,7 +15,7 @@ window.addEventListener('DOMContentLoaded', () => {
   appId: "1:568457688933:web:2eee210553b939cf39538c"
 };
 
-    // ▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲
+ // ▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲
 
     firebase.initializeApp(firebaseConfig);
     const db = firebase.firestore();
@@ -515,10 +515,19 @@ window.addEventListener('DOMContentLoaded', () => {
     }
     
     function checkAndResetDailyData() {
-        const today = new Date().toISOString().split('T')[0];
+        // ユーザーのローカルタイムゾーンで現在の日付を取得 (YYYY-MM-DD形式)
+        const now = new Date();
+        const year = now.getFullYear();
+        const month = String(now.getMonth() + 1).padStart(2, '0');
+        const day = String(now.getDate()).padStart(2, '0');
+        const today = `${year}-${month}-${day}`;
+
         const lastDate = localStorage.getItem(LAST_ACTIVE_DATE_KEY);
+
+        // 保存されている日付と今日の日付が異なる場合、データをリセット
         if (today !== lastDate) {
-            handleResetAll(true);
+            console.log(`日付が変わりました。データをリセットします。(旧: ${lastDate}, 新: ${today})`);
+            handleResetAll(true); // isAutomatic = true で確認プロンプトなしでリセット
             localStorage.setItem(LAST_ACTIVE_DATE_KEY, today);
         }
     }
