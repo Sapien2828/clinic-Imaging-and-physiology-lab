@@ -1,20 +1,18 @@
 window.addEventListener('DOMContentLoaded', () => {
     // ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
- const firebaseConfig = {
-  apiKey: "AIzaSyCsk7SQQY58yKIn-q4ps1gZ2BRbc2k6flE",
-  authDomain: "clinic-imaging-and-physiology.firebaseapp.com",
-  projectId: "clinic-imaging-and-physiology",
-  storageBucket: "clinic-imaging-and-physiology.firebasestorage.app",
-  messagingSenderId: "568457688933",
-  appId: "1:568457688933:web:2eee210553b939cf39538c"
-};
-
-
+    // admin.jsから正しいFirebase設定を反映しました。
+    const firebaseConfig = {
+      apiKey: "AIzaSyCsk7SQQY58yKIn-q4ps1gZ2BRbc2k6flE",
+      authDomain: "clinic-imaging-and-physiology.firebaseapp.com",
+      projectId: "clinic-imaging-and-physiology",
+      storageBucket: "clinic-imaging-and-physiology.firebasestorage.app",
+      messagingSenderId: "568457688933",
+      appId: "1:568457688933:web:2eee210553b939cf39538c"
+    };
     // ▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲
 
     firebase.initializeApp(firebaseConfig);
     const db = firebase.firestore();
-    const auth = firebase.auth();
     const patientsCollection = db.collection('patients');
 
     const roomConfiguration = {
@@ -69,33 +67,25 @@ window.addEventListener('DOMContentLoaded', () => {
     }
     
     function initialize() {
-        // ゲスト（ログインしていないユーザー）として匿名でサインインする
-        auth.signInAnonymously()
-            .then(() => {
-                // データベースの変更をリアルタイムで監視する
-                patientsCollection.orderBy("order").onSnapshot(snapshot => {
-                    registeredPatients = snapshot.docs.map(doc => {
-                        const data = doc.data();
-                        // データベースから取得した時刻データが存在する場合のみ正しく変換する
-                        return {
-                            id: doc.id,
-                            ...data,
-                            receptionTime: data.receptionTime ? data.receptionTime.toDate() : null,
-                            awayTime: data.awayTime ? data.awayTime.toDate() : null,
-                            inRoomSince: data.inRoomSince ? data.inRoomSince.toDate() : null,
-                        };
-                    });
-                    // 画面を再描画する
-                    renderWaitingDisplay();
-                }, error => {
-                    console.error("Firestoreからのデータ取得に失敗しました:", error);
-                    if(waitingDisplayGrid) waitingDisplayGrid.innerHTML = `<p class="no-patients">データの読み込みに失敗しました。Firebaseのセキュリティルールを確認してください。</p>`;
-                });
-            })
-            .catch((error) => {
-                console.error("匿名認証エラー:", error);
-                if(waitingDisplayGrid) waitingDisplayGrid.innerHTML = `<p class="no-patients">データの読み込みに失敗しました。管理者にお問い合わせください。</p>`;
+        // データベースの変更をリアルタイムで監視する
+        patientsCollection.orderBy("order").onSnapshot(snapshot => {
+            registeredPatients = snapshot.docs.map(doc => {
+                const data = doc.data();
+                // データベースから取得した時刻データが存在する場合のみ正しく変換する
+                return {
+                    id: doc.id,
+                    ...data,
+                    receptionTime: data.receptionTime ? data.receptionTime.toDate() : null,
+                    awayTime: data.awayTime ? data.awayTime.toDate() : null,
+                    inRoomSince: data.inRoomSince ? data.inRoomSince.toDate() : null,
+                };
             });
+            // 画面を再描画する
+            renderWaitingDisplay();
+        }, error => {
+            console.error("Firestoreからのデータ取得に失敗しました:", error);
+            if(waitingDisplayGrid) waitingDisplayGrid.innerHTML = `<p class="no-patients">データの読み込みに失敗しました。Firebaseのセキュリティルールを確認してください。</p>`;
+        });
     }
 
     initialize();
