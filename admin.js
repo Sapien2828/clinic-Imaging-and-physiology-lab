@@ -1,6 +1,5 @@
 window.addEventListener('DOMContentLoaded', () => {
 
-    // admin-containerが存在しないページでは実行しない
     if (!document.querySelector('.admin-container')) {
         return;
     }
@@ -16,16 +15,13 @@ window.addEventListener('DOMContentLoaded', () => {
   appId: "1:568457688933:web:2eee210553b939cf39538c"
 };
 
-
     // ▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲
 
-    // Firebaseの初期化
     firebase.initializeApp(firebaseConfig);
     const db = firebase.firestore();
     const auth = firebase.auth();
     const patientsCollection = db.collection('patients');
 
-    // 定数と設定
     const LAST_ACTIVE_DATE_KEY = 'receptionLastActiveDate';
     const roomConfiguration = {
         'レントゲン撮影室': ['レントゲン撮影室(1番)', 'レントゲン撮影室(2番)', '透視室(6番)'],
@@ -36,16 +32,13 @@ window.addEventListener('DOMContentLoaded', () => {
     const waitingRoomOrder = ['レントゲン撮影室(1番)', 'レントゲン撮影室(2番)', '超音波検査室(3番)', '骨密度検査室(4番)', 'CT撮影室(5番)', '透視室(6番)', '聴力検査室(7番)', '呼吸機能検査室(8番)', '血管脈波検査室(9番)', '乳腺撮影室(10番)', '超音波検査室(11番)', '肺機能検査室(12番)', '心電図検査室(13番)', '超音波検査室(14番)', '超音波検査室(15番)'];
     const specialNoteRooms = ['CT撮影室(5番)', '超音波検査室(3番)', '超音波検査室(11番)', '超音波検査室(14番)', '超音波検査室(15番)'];
 
-    // グローバル変数
     let registeredPatients = []; 
     let editMode = { active: false, patientId: null };
     let html5QrCode = null;
     let qrScanContext = null;
 
-    // DOM要素の取得
     const allTabs = document.querySelectorAll('.tab-content');
     const tabButtons = document.querySelectorAll('.tab-button');
-    const receptionTab = document.getElementById('reception-tab');
     const patientIdInput = document.getElementById('patient-id');
     const ticketNumberInput = document.getElementById('ticket-number');
     const specialNotesInput = document.getElementById('special-notes');
@@ -71,7 +64,6 @@ window.addEventListener('DOMContentLoaded', () => {
     const resetAllBtn = document.getElementById('reset-all-btn');
     const logoutButton = document.getElementById('logout-button');
 
-    // === 初期化処理 ===
     function initialize() {
         auth.onAuthStateChanged(user => {
             if (user) {
@@ -86,26 +78,16 @@ window.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // Firestoreのデータ変更を監視
     function listenToPatients() {
         patientsCollection.orderBy("order").onSnapshot(snapshot => {
             registeredPatients = snapshot.docs.map(doc => {
                 const data = doc.data();
-                return {
-                    id: doc.id,
-                    ...data,
-                    receptionTime: data.receptionTime?.toDate(),
-                    awayTime: data.awayTime ? data.awayTime.toDate() : null,
-                    inRoomSince: data.inRoomSince ? data.inRoomSince.toDate() : null,
-                };
+                return { id: doc.id, ...data, receptionTime: data.receptionTime?.toDate(), awayTime: data.awayTime?.toDate(), inRoomSince: data.inRoomSince?.toDate() };
             });
             renderAll();
-        }, error => {
-            console.error("Firestoreからのデータ取得に失敗しました:", error);
-        });
+        }, error => console.error("Firestoreデータ取得エラー:", error));
     }
 
-    // イベントリスナーを設定
     function setupEventListeners() {
         tabButtons.forEach(button => {
             button.addEventListener('click', (e) => {
@@ -113,153 +95,130 @@ window.addEventListener('DOMContentLoaded', () => {
                 tabButtons.forEach(btn => btn.classList.remove('active'));
                 allTabs.forEach(tab => tab.classList.remove('active'));
                 e.currentTarget.classList.add('active');
-                const targetContent = document.getElementById(targetTabId);
-                if (targetContent) {
-                    targetContent.classList.add('active');
-                }
+                document.getElementById(targetTabId)?.classList.add('active');
                 renderAll();
             });
         });
         
-        if (registerBtn) { registerBtn.addEventListener('click', () => { if (editMode.active) handleUpdate(); else handleRegistration(); }); }
+        if (registerBtn) registerBtn.addEventListener('click', () => { if (editMode.active) handleUpdate(); else handleRegistration(); });
         
-        const setupListEventListeners = (container) => {
-            if (!container) return;
-            container.addEventListener('click', (e) => {
-                const target = e.target.closest('button');
-                if (!target) return;
-                const card = target.closest('.patient-card');
-                if (!card) return;
-                const patientId = card.dataset.id;
-                if (target.matches('.away-btn')) handleAwayButtonClick(patientId);
-                if (target.matches('.edit-btn')) handleEditButtonClick(patientId);
-                if (target.matches('.up-btn')) handleMove(patientId, 'up');
-                if (target.matches('.down-btn')) handleMove(patientId, 'down');
-                if (container.id === 'registered-list-container' && target.matches('.cancel-btn')) handleCancelButtonClick(patientId);
-                if (container.id === 'lab-waiting-list-container') {
-                    if (target.matches('.exam-btn')) handleExamButtonClick(patientId);
-                    if (target.matches('.finish-exam-btn')) handleFinishExamButtonClick(patientId);
-                    if (target.matches('.change-room-btn')) handleRoomChangeClick(patientId);
-                    if (target.matches('.cancel-btn')) handleCancelLabReception(patientId);
-                    if (target.matches('.return-to-wait-btn')) handleReturnToWaiting(patientId);
-                }
-            });
-            let draggedItem = null;
-            container.addEventListener('dragstart', (e) => {
-                const target = e.target.closest('.patient-card');
-                if (target) { draggedItem = target; setTimeout(() => { if (draggedItem) draggedItem.classList.add('dragging'); }, 0); }
-            });
-            container.addEventListener('dragend', () => { if (draggedItem) { draggedItem.classList.remove('dragging'); draggedItem = null; } });
-            container.addEventListener('dragover', (e) => { e.preventDefault(); const afterElement = getDragAfterElement(container, e.clientY); const currentlyDragged = document.querySelector('.dragging'); if (currentlyDragged) { if (afterElement == null) { container.appendChild(currentlyDragged); } else { container.insertBefore(currentlyDragged, afterElement); } } });
-            container.addEventListener('drop', async (e) => {
-                e.preventDefault();
-                if (draggedItem) draggedItem.classList.remove('dragging');
-                const newOrderedIds = Array.from(container.querySelectorAll('.patient-card')).map(card => card.dataset.id);
-                const batch = db.batch();
-                newOrderedIds.forEach((id, index) => {
-                    const patientRef = patientsCollection.doc(id);
-                    batch.update(patientRef, { order: index });
-                });
-                try {
-                    await batch.commit();
-                } catch (error) {
-                    console.error("ドラッグ＆ドロップによる順序更新に失敗: ", error);
-                }
-            });
-        };
-        setupListEventListeners(registeredListContainer);
-        setupListEventListeners(labWaitingListContainer);
+        [registeredListContainer, labWaitingListContainer].forEach(container => {
+            if (container) {
+                container.addEventListener('click', handleListButtonClick);
+                setupDragAndDrop(container);
+            }
+        });
 
         allReceptionCards.forEach(card => {
-            card.addEventListener('keydown', (e) => { 
-                if (e.key === ' ' || e.key === 'Enter') { 
-                    e.preventDefault();
-                    toggleCardSelection(card); 
-                } 
-            });
             card.addEventListener('click', () => toggleCardSelection(card));
+            card.addEventListener('keydown', e => { if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); toggleCardSelection(card); } });
         });
 
         if (patientIdInput) { patientIdInput.addEventListener('input', handlePatientIdInput); patientIdInput.addEventListener('blur', handlePatientIdBlur); }
         if (ticketNumberInput) { ticketNumberInput.addEventListener('input', handleNumericInput); ticketNumberInput.addEventListener('keydown', handleTicketNumberEnter); }
-        if (specialNotesInput) { specialNotesInput.addEventListener('input', updatePreview); }
-        if (receptionQrReaderBtn) { receptionQrReaderBtn.addEventListener('click', () => startCamera('reception')); }
-        if (labQrReaderBtn) { labQrReaderBtn.addEventListener('click', () => startCamera('lab')); }
-        if (stopCameraBtn) { stopCameraBtn.addEventListener('click', stopCamera); }
-        if (labRoomSelect) { labRoomSelect.addEventListener('change', renderLabWaitingList); }
-        if (resetAllBtn) { resetAllBtn.addEventListener('click', () => handleResetAll(false)); }
-        if (receptionTab) { receptionTab.addEventListener('keydown', handleArrowKeyNavigation); }
-        if(logoutButton) { logoutButton.addEventListener('click', () => { auth.signOut(); }); }
+        if (specialNotesInput) specialNotesInput.addEventListener('input', updatePreview);
+        if (receptionQrReaderBtn) receptionQrReaderBtn.addEventListener('click', () => startCamera('reception'));
+        if (labQrReaderBtn) labQrReaderBtn.addEventListener('click', () => startCamera('lab'));
+        if (stopCameraBtn) stopCameraBtn.addEventListener('click', stopCamera);
+        if (labRoomSelect) labRoomSelect.addEventListener('change', renderLabWaitingList);
+        if (resetAllBtn) resetAllBtn.addEventListener('click', () => handleResetAll(false));
+        if (logoutButton) logoutButton.addEventListener('click', () => auth.signOut());
     }
     
-    // === QRカメラ関連 ===
+    function handleListButtonClick(e) {
+        const target = e.target.closest('button');
+        if (!target) return;
+        const card = target.closest('.patient-card');
+        if (!card) return;
+        const patientId = card.dataset.id;
+        const actionMap = {
+            'away-btn': () => handleAwayButtonClick(patientId),
+            'edit-btn': () => handleEditButtonClick(patientId),
+            'up-btn': () => handleMove(patientId, 'up'),
+            'down-btn': () => handleMove(patientId, 'down'),
+            'cancel-btn': () => card.closest('.patient-list').id === 'registered-list-container' ? handleCancelButtonClick(patientId) : handleCancelLabReception(patientId),
+            'exam-btn': () => handleExamButtonClick(patientId),
+            'finish-exam-btn': () => handleFinishExamButtonClick(patientId),
+            'change-room-btn': () => handleRoomChangeClick(patientId),
+            'return-to-wait-btn': () => handleReturnToWaiting(patientId),
+        };
+        for (const className in actionMap) {
+            if (target.classList.contains(className)) {
+                actionMap[className]();
+                break;
+            }
+        }
+    }
+
+    function setupDragAndDrop(container) {
+        let draggedItem = null;
+        container.addEventListener('dragstart', e => {
+            draggedItem = e.target.closest('.patient-card');
+            if (draggedItem) setTimeout(() => draggedItem.classList.add('dragging'), 0);
+        });
+        container.addEventListener('dragend', () => { if (draggedItem) { draggedItem.classList.remove('dragging'); draggedItem = null; } });
+        container.addEventListener('dragover', e => {
+            e.preventDefault();
+            const afterElement = getDragAfterElement(container, e.clientY);
+            const currentlyDragged = document.querySelector('.dragging');
+            if (currentlyDragged) {
+                if (afterElement == null) container.appendChild(currentlyDragged);
+                else container.insertBefore(currentlyDragged, afterElement);
+            }
+        });
+        container.addEventListener('drop', async e => {
+            e.preventDefault();
+            if (!draggedItem) return;
+            draggedItem.classList.remove('dragging');
+            const newOrderedIds = Array.from(container.querySelectorAll('.patient-card')).map(card => card.dataset.id);
+            const batch = db.batch();
+            newOrderedIds.forEach((id, index) => batch.update(patientsCollection.doc(id), { order: index }));
+            try { await batch.commit(); } catch (error) { console.error("順序更新失敗:", error); }
+        });
+    }
+    
     function startCamera(context) {
-        if (html5QrCode && html5QrCode.isScanning) { return; }
+        if (html5QrCode?.isScanning) return;
         qrScanContext = context;
         cameraContainer.classList.add('is-visible');
-
         html5QrCode = new Html5Qrcode("qr-reader");
         const config = { fps: 10, qrbox: { width: 250, height: 250 }, rememberLastUsedCamera: true };
-        
         html5QrCode.start({ facingMode: "environment" }, config, onQrSuccess, onQrFailure)
-            .catch(err => {
-                console.warn("背面カメラの起動に失敗。デフォルトカメラを試します。", err);
-                html5QrCode.start(undefined, config, onQrSuccess, onQrFailure)
-                    .catch(err2 => {
-                        alert("カメラの起動に失敗しました。ブラウザのアクセス許可を確認してください。");
-                        stopCamera();
-                    });
-            });
+            .catch(() => html5QrCode.start(undefined, config, onQrSuccess, onQrFailure)
+                .catch(() => { alert("カメラの起動に失敗しました。"); stopCamera(); }));
     }
 
     function onQrSuccess(decodedText) {
         stopCamera();
         const ticketNumberValue = parseInt(decodedText, 10);
         if (!isNaN(ticketNumberValue) && ticketNumberValue >= 1 && ticketNumberValue <= 1000) {
-            const ticketStr = String(ticketNumberValue);
             if (qrScanContext === 'reception') {
-                ticketNumberInput.value = ticketStr;
+                ticketNumberInput.value = String(ticketNumberValue);
                 updatePreview();
-                const patientId = patientIdInput.value;
-                const selectedLabs = Array.from(labSelectionCards).filter(c => c.classList.contains('selected'));
-                if (patientId.length === 7 && selectedLabs.length > 0) {
+                if (patientIdInput.value.length === 7 && Array.from(labSelectionCards).some(c => c.classList.contains('selected'))) {
                     registerBtn.click();
                 }
             } else if (qrScanContext === 'lab') {
                 const selectedLab = labRoomSelect.value;
-                if (!selectedLab) {
-                    alert('先に検査室を選択してください。');
-                    return;
-                }
-                const patient = registeredPatients.find(p => p.ticketNumber === ticketStr && p.labs.includes(selectedLab));
-                if (patient) {
-                   handleExamButtonClick(patient.id);
-                } else {
-                    alert(`番号札「${ticketStr}」の患者は、この検査（${selectedLab}）の待機リストに見つかりませんでした。`);
-                }
+                if (!selectedLab) { alert('先に検査室を選択してください。'); return; }
+                const patient = registeredPatients.find(p => p.ticketNumber === ticketNumberValue && p.labs.includes(selectedLab));
+                if (patient) handleExamButtonClick(patient.id);
+                else alert(`番号札「${ticketNumberValue}」の患者は、この検査の待機リストにいません。`);
             }
         } else {
-            alert(`無効なQRコードです。1～1000の数値を読み取ってください。\n(読み取り値: ${decodedText})`);
+            alert(`無効なQRコードです: 「${decodedText}」 (1～1000の番号を読み取ってください)`);
         }
     }
 
-    function onQrFailure(error) { /* 読み取り中のエラーは無視 */ }
+    function onQrFailure(error) { /* NO-OP */ }
 
     function stopCamera() {
-        if (html5QrCode && html5QrCode.isScanning) {
-            html5QrCode.stop()
-                .then(() => { html5QrCode = null; })
-                .catch(err => {
-                    console.error("カメラの停止に失敗しました。", err);
-                    html5QrCode = null;
-                });
+        if (html5QrCode?.isScanning) {
+            html5QrCode.stop().catch(err => console.error("カメラ停止失敗:", err)).finally(() => html5QrCode = null);
         }
-        if (cameraContainer) {
-            cameraContainer.classList.remove('is-visible');
-        }
+        cameraContainer.classList.remove('is-visible');
     }
 
-    // === データ処理・イベントハンドラ ===
     async function handleRegistration() {
         const newPatientData = getCurrentFormData();
         if (!newPatientData.patientId || isNaN(newPatientData.ticketNumber)) { alert('患者IDと正しい番号札は必須です。'); return; }
@@ -429,7 +388,6 @@ window.addEventListener('DOMContentLoaded', () => {
         }
     }
     
-    // === UI描画・更新関連の関数 ===
     function renderAll() {
         const activeTab = document.querySelector('.tab-content.active');
         if (!activeTab) return;
@@ -556,7 +514,6 @@ window.addEventListener('DOMContentLoaded', () => {
         return `<div class="${cardClasses}" data-id="${id}" draggable="true"><div class="patient-card-drag-area"><div class="drag-handle">⠿</div><div class="card-up-down"><button class="up-btn" title="上へ">▲</button><button class="down-btn" title="下へ">▼</button></div></div><div class="patient-card-info">${idLineHtml}<p><strong>受付:</strong> ${receptionTimeStr}</p><p><strong>検査:</strong> ${labs.join(', ') || 'なし'}</p><p><strong>状態:</strong> ${statusHtml}</p>${inRoomHtml}${awayHtml}${notesHtml}${actionsHtml}</div></div>`;
     }
     
-    // === ヘルパー関数 ===
     function checkAndResetDailyData() {
         const today = new Date().toISOString().split('T')[0];
         const lastDate = localStorage.getItem(LAST_ACTIVE_DATE_KEY);
@@ -851,6 +808,5 @@ window.addEventListener('DOMContentLoaded', () => {
         });
     }
         
-    // アプリケーションの実行を開始
     initialize();
 });
