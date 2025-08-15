@@ -1,14 +1,15 @@
 window.addEventListener('DOMContentLoaded', () => {
     // ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
-    // admin.jsから正しいFirebase設定を反映しました。
-    const firebaseConfig = {
-      apiKey: "AIzaSyCsk7SQQY58yKIn-q4ps1gZ2BRbc2k6flE",
-      authDomain: "clinic-imaging-and-physiology.firebaseapp.com",
-      projectId: "clinic-imaging-and-physiology",
-      storageBucket: "clinic-imaging-and-physiology.firebasestorage.app",
-      messagingSenderId: "568457688933",
-      appId: "1:568457688933:web:2eee210553b939cf39538c"
-    };
+const firebaseConfig = {
+  apiKey: "AIzaSyCsk7SQQY58yKIn-q4ps1gZ2BRbc2k6flE",
+  authDomain: "clinic-imaging-and-physiology.firebaseapp.com",
+  projectId: "clinic-imaging-and-physiology",
+  storageBucket: "clinic-imaging-and-physiology.firebasestorage.app",
+  messagingSenderId: "568457688933",
+  appId: "1:568457688933:web:2eee210553b939cf39538c"
+};
+
+
     // ▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲
 
     firebase.initializeApp(firebaseConfig);
