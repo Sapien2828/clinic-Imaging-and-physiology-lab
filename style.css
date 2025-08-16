@@ -35,7 +35,9 @@ hr { margin: 24px 0; border: 0; border-top: 1px solid var(--border-color); }
 
 /* ========== 管理者画面のタブUIスタイル ========== */
 .admin-container, .display-page-container { width: 100%; max-width: 1200px; margin: 20px auto; padding: 0 15px; box-sizing: border-box; }
-.admin-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; padding: 0 10px; }
+.admin-header, .display-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; padding: 0 10px; }
+.display-header { flex-direction: column; text-align: center; }
+.display-header-note { text-align: center; margin-top: -1rem; margin-bottom: 1.5rem; }
 .tab-buttons { display: flex; border-bottom: 2px solid var(--border-color); }
 .tab-button { padding: 15px 25px; font-size: 1rem; font-weight: 600; cursor: pointer; background-color: transparent; border: none; border-bottom: 3px solid transparent; color: #6c757d; transition: all 0.2s ease; }
 .tab-button:hover { background-color: #f1f3f5; }
@@ -43,9 +45,8 @@ hr { margin: 24px 0; border: 0; border-top: 1px solid var(--border-color); }
 .tab-contents { padding: 20px; background-color: white; border: 1px solid var(--border-color); border-top: none; border-radius: 0 0 var(--border-radius) var(--border-radius); }
 .tab-content { display: none; }
 .tab-content.active { display: block; }
-.tab-content h2, .display-header h2 { text-align: left; margin-top: 0; border-bottom: 2px solid var(--border-color); padding-bottom: 15px; margin-bottom: 20px; }
+.tab-content h2 { text-align: left; margin-top: 0; border-bottom: 2px solid var(--border-color); padding-bottom: 15px; margin-bottom: 20px; }
 .tab-content h3 { font-size: 1.1rem; margin-top: 1.5rem; margin-bottom: 1rem; }
-.display-header { text-align: center; }
 
 /* ========== 受付画面 & 検査室画面共通のスタイル ========== */
 .reception-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 30px; }
@@ -63,7 +64,7 @@ hr { margin: 24px 0; border: 0; border-top: 1px solid var(--border-color); }
     font-weight: 500; text-align: center;
 }
 .card-button:hover { background-color: var(--light-gray); border-color: #999; }
-.card-button:focus { outline: 2px solid var(--primary-color); outline-offset: 2px; }
+.card-button:focus, .card-button:focus-visible { outline: 3px solid var(--primary-color); outline-offset: 2px; box-shadow: 0 0 0 4px rgba(13, 110, 253, 0.25); }
 .card-button.selected { background-color: var(--primary-color); color: white; border-color: var(--primary-color); font-weight: 600; }
 .card-button.selected-urgent { background-color: var(--warning-color); color: var(--text-color); border-color: var(--warning-color); font-weight: 600; }
 .preview-area { min-height: 100px; padding: 0; background-color: #f8f9fa; border-radius: var(--border-radius); border: 1px dashed var(--border-color); }
@@ -114,8 +115,19 @@ hr { margin: 24px 0; border: 0; border-top: 1px solid var(--border-color); }
 .card-actions .btn.edit-btn { background-color: var(--info-color); color: white;}
 .card-actions .btn.cancel-btn { background-color: var(--danger-color); }
 
-/* ========== 患者待合画面のスタイル ========== */
-.waiting-display-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(350px, 1fr)); gap: 20px; }
+/* ========== 患者待合画面のスタイル (レスポンシブ対応) ========== */
+.waiting-display-grid {
+    display: grid;
+    gap: 20px;
+    grid-template-columns: 1fr; /* デフォルト (スマホ縦) */
+}
+/* スマホ横 (576px以上) */
+@media (min-width: 576px) { .waiting-display-grid { grid-template-columns: repeat(2, 1fr); } }
+/* タブレット (768px以上) */
+@media (min-width: 768px) { .waiting-display-grid { grid-template-columns: repeat(3, 1fr); } }
+/* PC (1200px以上) */
+@media (min-width: 1200px) { .waiting-display-grid { grid-template-columns: repeat(5, 1fr); } }
+
 .waiting-room-card {
     background-color: white; border: 1px solid var(--border-color);
     border-top: 5px solid #008080; border-radius: var(--border-radius);
@@ -138,6 +150,27 @@ hr { margin: 24px 0; border: 0; border-top: 1px solid var(--border-color); }
 .next-numbers span { margin: 0 0.1em; }
 .room-note { font-size: 0.85rem; color: #6c757d; background-color: #f8f9fa; padding: 10px; border-radius: var(--border-radius); margin-top: 20px; }
 
+/* 全画面表示用のスタイル */
+.display-page-container.dense-view {
+    max-width: 100%;
+    padding: 10px;
+    margin: 0;
+}
+.display-page-container.dense-view .waiting-room-card {
+    padding: 10px;
+}
+.display-page-container.dense-view .waiting-room-name {
+    font-size: 1.2rem;
+    margin-bottom: 10px;
+}
+.display-page-container.dense-view .now-serving-number {
+    font-size: 2.5rem;
+    min-height: 45px;
+}
+.display-page-container.dense-view .next-numbers {
+    font-size: 1.2rem;
+    min-height: 30px;
+}
+
 /* ========== スマートフォン向けレスポンシブ対応 ========== */
 @media (max-width: 992px) { .reception-grid, .lab-controls { grid-template-columns: 1fr; } }
-@media (max-width: 768px) { .waiting-display-grid { grid-template-columns: 1fr; } }

@@ -67,11 +67,9 @@ window.addEventListener('DOMContentLoaded', () => {
     }
     
     function initialize() {
-        // データベースの変更をリアルタイムで監視する (認証処理は不要)
         patientsCollection.orderBy("order").onSnapshot(snapshot => {
             registeredPatients = snapshot.docs.map(doc => {
                 const data = doc.data();
-                // データベースから取得した時刻データが存在する場合のみ正しく変換する
                 return {
                     id: doc.id,
                     ...data,
@@ -80,12 +78,36 @@ window.addEventListener('DOMContentLoaded', () => {
                     inRoomSince: data.inRoomSince ? data.inRoomSince.toDate() : null,
                 };
             });
-            // 画面を再描画する
             renderWaitingDisplay();
         }, error => {
             console.error("Firestoreからのデータ取得に失敗しました:", error);
             if(waitingDisplayGrid) waitingDisplayGrid.innerHTML = `<p class="no-patients">データの読み込みに失敗しました。Firebaseのセキュリティルールを確認してください。</p>`;
         });
+
+        const fullscreenBtn = document.getElementById('fullscreen-btn');
+        const container = document.querySelector('.display-page-container');
+
+        if(fullscreenBtn && container) {
+            fullscreenBtn.addEventListener('click', () => {
+                if (!document.fullscreenElement) {
+                    document.documentElement.requestFullscreen().catch(err => {
+                        alert(`全画面表示にできませんでした: ${err.message}`);
+                    });
+                } else {
+                    document.exitFullscreen();
+                }
+            });
+
+            document.addEventListener('fullscreenchange', () => {
+                if (document.fullscreenElement) {
+                    fullscreenBtn.textContent = '通常表示に戻す';
+                    container.classList.add('dense-view');
+                } else {
+                    fullscreenBtn.textContent = '全画面表示';
+                    container.classList.remove('dense-view');
+                }
+            });
+        }
     }
 
     initialize();

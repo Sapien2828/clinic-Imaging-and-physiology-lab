@@ -6,16 +6,15 @@ window.addEventListener('DOMContentLoaded', () => {
 
     // ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
     // 【重要】あなた自身のFirebase設定をここに貼り付けてください
-const firebaseConfig = {
-  apiKey: "AIzaSyCsk7SQQY58yKIn-q4ps1gZ2BRbc2k6flE",
-  authDomain: "clinic-imaging-and-physiology.firebaseapp.com",
-  projectId: "clinic-imaging-and-physiology",
-  storageBucket: "clinic-imaging-and-physiology.firebasestorage.app",
-  messagingSenderId: "568457688933",
-  appId: "1:568457688933:web:2eee210553b939cf39538c"
-};
-
- // ▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲
+    const firebaseConfig = {
+      apiKey: "AIzaSyCsk7SQQY58yKIn-q4ps1gZ2BRbc2k6flE",
+      authDomain: "clinic-imaging-and-physiology.firebaseapp.com",
+      projectId: "clinic-imaging-and-physiology",
+      storageBucket: "clinic-imaging-and-physiology.firebasestorage.app",
+      messagingSenderId: "568457688933",
+      appId: "1:568457688933:web:2eee210553b939cf39538c"
+    };
+    // ▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲
 
     firebase.initializeApp(firebaseConfig);
     const db = firebase.firestore();
@@ -111,7 +110,13 @@ const firebaseConfig = {
 
         allReceptionCards.forEach(card => {
             card.addEventListener('click', () => toggleCardSelection(card));
-            card.addEventListener('keydown', e => { if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); toggleCardSelection(card); } });
+            card.addEventListener('keydown', e => { 
+                if ([' ', 'Enter'].includes(e.key)) { e.preventDefault(); toggleCardSelection(card); }
+                else if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) {
+                    e.preventDefault();
+                    handleArrowKeyNavigation(e);
+                }
+            });
         });
 
         if (patientIdInput) { patientIdInput.addEventListener('input', handlePatientIdInput); patientIdInput.addEventListener('blur', handlePatientIdBlur); }
@@ -447,7 +452,7 @@ const firebaseConfig = {
             const waitCount = waitingPatientsForGroup.length;
             let waitTime = 0;
             if (waitCount > 0) {
-                const earliestPatient = patientsForThisGroup.filter(p => !p.isExamining).reduce((earliest, current) => new Date(earliest.receptionTime) < new Date(current.receptionTime) ? earliest : current);
+                const earliestPatient = patientsForThisGroup.filter(p => !p.isExamining && p.receptionTime).reduce((earliest, current) => earliest.receptionTime < current.receptionTime ? earliest : current, {receptionTime: new Date()});
                 if (earliestPatient && earliestPatient.receptionTime) {
                     waitTime = Math.round((new Date() - earliestPatient.receptionTime) / (1000 * 60));
                 }
@@ -515,7 +520,6 @@ const firebaseConfig = {
     }
     
     function checkAndResetDailyData() {
-        // ユーザーのローカルタイムゾーンで現在の日付を取得 (YYYY-MM-DD形式)
         const now = new Date();
         const year = now.getFullYear();
         const month = String(now.getMonth() + 1).padStart(2, '0');
@@ -524,10 +528,9 @@ const firebaseConfig = {
 
         const lastDate = localStorage.getItem(LAST_ACTIVE_DATE_KEY);
 
-        // 保存されている日付と今日の日付が異なる場合、データをリセット
         if (today !== lastDate) {
             console.log(`日付が変わりました。データをリセットします。(旧: ${lastDate}, 新: ${today})`);
-            handleResetAll(true); // isAutomatic = true で確認プロンプトなしでリセット
+            handleResetAll(true);
             localStorage.setItem(LAST_ACTIVE_DATE_KEY, today);
         }
     }
@@ -710,17 +713,15 @@ const firebaseConfig = {
 
     function handleArrowKeyNavigation(e) {
         const activeElement = document.activeElement;
-        if (!activeElement || !activeElement.classList.contains('card-button')) return;
-        if (!['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) return;
+        if (!activeElement.classList.contains('card-button')) return;
         
-        e.preventDefault();
-
         const container = activeElement.closest('.selectable-cards');
         if (!container) return;
 
         const cards = Array.from(container.querySelectorAll('.card-button'));
         const currentIndex = cards.indexOf(activeElement);
 
+        // 列数を動的に計算
         const cardRects = cards.map(c => c.getBoundingClientRect());
         const firstCardTop = cardRects.length > 0 ? cardRects[0].top : 0;
         const numCols = cardRects.filter(rect => rect.top === firstCardTop).length || 1;
@@ -728,20 +729,20 @@ const firebaseConfig = {
         let nextIndex = -1;
         switch (e.key) {
             case 'ArrowRight':
-                if (currentIndex < cards.length - 1) nextIndex = currentIndex + 1;
+                nextIndex = currentIndex + 1;
                 break;
             case 'ArrowLeft':
-                if (currentIndex > 0) nextIndex = currentIndex - 1;
+                nextIndex = currentIndex - 1;
                 break;
             case 'ArrowDown':
-                if (currentIndex + numCols < cards.length) nextIndex = currentIndex + numCols;
+                nextIndex = currentIndex + numCols;
                 break;
             case 'ArrowUp':
-                if (currentIndex - numCols >= 0) nextIndex = currentIndex - numCols;
+                nextIndex = currentIndex - numCols;
                 break;
         }
 
-        if (nextIndex !== -1 && nextIndex < cards.length) {
+        if (nextIndex >= 0 && nextIndex < cards.length) {
             cards[nextIndex].focus();
         }
     }
