@@ -1,15 +1,14 @@
 window.addEventListener('DOMContentLoaded', () => {
     // ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
-const firebaseConfig = {
-  apiKey: "AIzaSyCsk7SQQY58yKIn-q4ps1gZ2BRbc2k6flE",
-  authDomain: "clinic-imaging-and-physiology.firebaseapp.com",
-  projectId: "clinic-imaging-and-physiology",
-  storageBucket: "clinic-imaging-and-physiology.firebasestorage.app",
-  messagingSenderId: "568457688933",
-  appId: "1:568457688933:web:2eee210553b939cf39538c"
-};
-
-
+    // admin.jsから正しいFirebase設定を反映しました。
+    const firebaseConfig = {
+      apiKey: "AIzaSyCsk7SQQY58yKIn-q4ps1gZ2BRbc2k6flE",
+      authDomain: "clinic-imaging-and-physiology.firebaseapp.com",
+      projectId: "clinic-imaging-and-physiology",
+      storageBucket: "clinic-imaging-and-physiology.firebasestorage.app",
+      messagingSenderId: "568457688933",
+      appId: "1:568457688933:web:2eee210553b939cf39538c"
+    };
     // ▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲
 
     firebase.initializeApp(firebaseConfig);
@@ -68,7 +67,7 @@ const firebaseConfig = {
     }
     
     function initialize() {
-        // データベースの変更をリアルタイムで監視する
+        // データベースの変更をリアルタイムで監視する (認証処理は不要)
         patientsCollection.orderBy("order").onSnapshot(snapshot => {
             registeredPatients = snapshot.docs.map(doc => {
                 const data = doc.data();
